@@ -40,7 +40,7 @@ export function RejectModal({
     if (!resolution) return
     onConfirm(
       {
-        reason: resolution.label,
+        reason: resolution.id === 'none' ? undefined : resolution.label,
         commentText: text,
         commentKind: internal ? 'internal' : 'public',
         attachments,

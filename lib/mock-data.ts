@@ -172,51 +172,62 @@ export function formatDate(iso: string) {
   return `${date} ${time}`
 }
 
-/** Resolutions offered when rejecting a request, each with its own canned responses. */
+/** Resolutions offered in the Bulk reject modal, each with its own saved responses. */
 export const REJECT_RESOLUTIONS: { id: string; label: string; responses: { id: string; name: string; body: string }[] }[] = [
+  { id: 'none', label: 'None', responses: [] },
   {
-    id: 'unverified',
-    label: 'Unable to verify identity',
+    id: 'excessive',
+    label: 'Excessive request',
     responses: [
       {
-        id: 'unverified-1',
-        name: 'Identity could not be verified',
-        body: 'Hello {{SubjectFirstName}},\n\nWe were unable to verify your identity, so we cannot process your request ({{RequestId}}). You are welcome to submit a new request.\n\nKind regards,\nPrivacy Team',
+        id: 'excessive-1',
+        name: 'Manifestly excessive request',
+        body: 'Hello {{SubjectFirstName}},\n\nWe have reviewed your request ({{RequestId}}) and consider it manifestly excessive, given its repetitive nature. We are therefore unable to fulfil it.\n\nKind regards,\nPrivacy Team',
       },
     ],
   },
   {
-    id: 'agent',
-    label: 'Unauthorized agent',
+    id: 'unfounded',
+    label: 'Frivolous/unfounded request',
     responses: [
       {
-        id: 'agent-1',
-        name: 'No proof of authorization',
-        body: 'Hello,\n\nThis request ({{RequestId}}) was submitted by an agent without valid proof of authorization from the data subject, so it has been rejected.\n\nKind regards,\nPrivacy Team',
+        id: 'unfounded-1',
+        name: 'Manifestly unfounded request',
+        body: 'Hello {{SubjectFirstName}},\n\nWe have reviewed your request ({{RequestId}}) and consider it manifestly unfounded, so we are unable to fulfil it.\n\nKind regards,\nPrivacy Team',
       },
     ],
   },
   {
-    id: 'duplicate',
-    label: 'Duplicate request',
+    id: 'incomplete',
+    label: 'Incomplete/partial data',
     responses: [
       {
-        id: 'duplicate-1',
-        name: 'Duplicate of an existing request',
-        body: 'Hello {{SubjectFirstName}},\n\nThis request ({{RequestId}}) duplicates a request we are already processing, so it has been closed as a duplicate.\n\nKind regards,\nPrivacy Team',
+        id: 'incomplete-1',
+        name: 'Not enough information provided',
+        body: 'Hello {{SubjectFirstName}},\n\nYour request ({{RequestId}}) did not include enough information for us to locate your personal data. You are welcome to submit a new request with complete details.\n\nKind regards,\nPrivacy Team',
       },
     ],
   },
   {
-    id: 'out-of-scope',
-    label: 'Request out of scope',
+    id: 'no-response',
+    label: 'No response/verification',
     responses: [
       {
-        id: 'scope-1',
-        name: 'Not covered by applicable law',
-        body: 'Hello {{SubjectFirstName}},\n\nYour request ({{RequestId}}) is not covered by the privacy laws that apply to you, so we are unable to fulfil it.\n\nKind regards,\nPrivacy Team',
+        id: 'no-response-1',
+        name: 'Verification not completed',
+        body: 'Hello {{SubjectFirstName}},\n\nWe did not receive the verification needed to process your request ({{RequestId}}) within the required time, so it has been rejected. You are welcome to submit a new request.\n\nKind regards,\nPrivacy Team',
       },
     ],
   },
-  { id: 'other', label: 'Other', responses: [] },
+  {
+    id: 'non-eu',
+    label: 'Non-EU request',
+    responses: [
+      {
+        id: 'non-eu-1',
+        name: 'GDPR does not apply',
+        body: 'Hello {{SubjectFirstName}},\n\nYour request ({{RequestId}}) was submitted under the GDPR, which does not apply to your location, so we are unable to fulfil it.\n\nKind regards,\nPrivacy Team',
+      },
+    ],
+  },
 ]
