@@ -59,6 +59,7 @@ export function jobLabel(action: ActionId, params: ActionParams) {
     if (params.replyAs) return `Public comment (reply as ${params.replyAs})`
     return 'Add public comment'
   }
+  if ((action === 'reject' || action === 'close') && !params.single) return `Bulk ${ACTION_LABELS[action].toLowerCase()}`
   return ACTION_LABELS[action]
 }
 
@@ -335,8 +336,29 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
         { ...r, extended: true, deadline: new Date(new Date(r.deadline).getTime() + 45 * 86400000).toISOString() },
         'Deadline extended by 45 days',
       )
-    case 'reject':
-      return audit({ ...r, stage: 'Rejected' }, `Request rejected${params.reason ? `: ${params.reason}` : ''}`)
+    case 'reject': {
+      let next = audit({ ...r, stage: 'Rejected' as Stage }, `Request rejected${params.reason ? `: ${params.reason}` : ''}`)
+      if (params.commentText?.trim()) {
+        const kind = params.commentKind ?? 'internal'
+        next = audit(
+          {
+            ...next,
+            comments: [
+              {
+                at: new Date().toISOString(),
+                by: CURRENT_USER,
+                kind,
+                text: params.commentText.replaceAll('{{RequestId}}', r.id).replaceAll('{{SubjectFirstName}}', r.name.split(' ')[0]),
+                attachments: params.attachments ?? [],
+              },
+              ...next.comments,
+            ],
+          },
+          kind === 'public' ? 'Rejection message sent to data subject' : 'Internal comment added',
+        )
+      }
+      return next
+    }
     case 'close':
       return audit({ ...r, stage: 'Closed' }, `Request closed${params.reason ? `: ${params.reason}` : ''}`)
     case 'mark-read':

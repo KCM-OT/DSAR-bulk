@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { PlanSummary } from '@/components/bulk/plan-summary'
+import { RejectModal } from '@/components/bulk/reject-modal'
 import { ACTION_LABELS, computePlan, type ActionId, type ActionParams, type ReplyAs } from '@/lib/actions'
 import { ASSIGNEES, RESPONSE_TEMPLATES, WORKFLOWS } from '@/lib/mock-data'
 import { useStore } from '@/lib/store'
@@ -460,6 +461,8 @@ export function ActionLauncher({
     <Modal open onOpenChange={(open) => !open && onClose()}>
       {pending.action === 'comment' ? (
         <CommentModal selected={selected} mode={pending.commentMode} onClose={onClose} onConfirm={confirm} />
+      ) : pending.action === 'reject' ? (
+        <RejectModal selected={selected} onClose={onClose} onConfirm={confirm} />
       ) : (
         <StandardActionModal pending={pending} selected={selected} onClose={onClose} onConfirm={confirm} />
       )}

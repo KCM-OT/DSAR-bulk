@@ -171,3 +171,52 @@ export function formatDate(iso: string) {
   const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   return `${date} ${time}`
 }
+
+/** Resolutions offered when rejecting a request, each with its own canned responses. */
+export const REJECT_RESOLUTIONS: { id: string; label: string; responses: { id: string; name: string; body: string }[] }[] = [
+  {
+    id: 'unverified',
+    label: 'Unable to verify identity',
+    responses: [
+      {
+        id: 'unverified-1',
+        name: 'Identity could not be verified',
+        body: 'Hello {{SubjectFirstName}},\n\nWe were unable to verify your identity, so we cannot process your request ({{RequestId}}). You are welcome to submit a new request.\n\nKind regards,\nPrivacy Team',
+      },
+    ],
+  },
+  {
+    id: 'agent',
+    label: 'Unauthorized agent',
+    responses: [
+      {
+        id: 'agent-1',
+        name: 'No proof of authorization',
+        body: 'Hello,\n\nThis request ({{RequestId}}) was submitted by an agent without valid proof of authorization from the data subject, so it has been rejected.\n\nKind regards,\nPrivacy Team',
+      },
+    ],
+  },
+  {
+    id: 'duplicate',
+    label: 'Duplicate request',
+    responses: [
+      {
+        id: 'duplicate-1',
+        name: 'Duplicate of an existing request',
+        body: 'Hello {{SubjectFirstName}},\n\nThis request ({{RequestId}}) duplicates a request we are already processing, so it has been closed as a duplicate.\n\nKind regards,\nPrivacy Team',
+      },
+    ],
+  },
+  {
+    id: 'out-of-scope',
+    label: 'Request out of scope',
+    responses: [
+      {
+        id: 'scope-1',
+        name: 'Not covered by applicable law',
+        body: 'Hello {{SubjectFirstName}},\n\nYour request ({{RequestId}}) is not covered by the privacy laws that apply to you, so we are unable to fulfil it.\n\nKind regards,\nPrivacy Team',
+      },
+    ],
+  },
+  { id: 'other', label: 'Other', responses: [] },
+]
