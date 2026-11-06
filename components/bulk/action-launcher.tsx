@@ -25,7 +25,7 @@ import { useStore } from '@/lib/store'
 import type { DsarRequest } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-export type PendingAction = { action: ActionId; ids: string[]; single?: boolean }
+export type PendingAction = { action: ActionId; ids: string[]; single?: boolean; commentMode?: 'public' | 'internal' }
 
 const KEEP = '__keep'
 const REASONS = ['Duplicate request', 'Unable to verify identity', 'Submitted by an unauthorized agent', 'Request withdrawn', 'Other']
@@ -133,7 +133,7 @@ function StandardActionModal({
   const plan = React.useMemo(() => computePlan(action, params, selected), [action, params, selected])
 
   const needsInput = (action === 'assign' && !params.assignee) || (action === 'change-workflow' && !params.workflow)
-  const isFlag = action.startsWith('flag') || action.startsWith('remove')
+  const isFlag = action.startsWith('flag') || action.startsWith('remove') || action === 'move-to-standard'
   const flagName = action.endsWith('confirmed') ? 'Confirmed automation' : 'Suspected automation'
 
   const title = pending.single ? ACTION_LABELS[action] : `${ACTION_LABELS[action]}: ${n(selected.length)} selected`
@@ -219,7 +219,9 @@ function StandardActionModal({
         {isFlag && (
           <>
             <Note>
-              {action.startsWith('flag')
+              {action === 'move-to-standard'
+                ? "The confirmed or suspected automation flag is removed, and requests move to Standard requests the next time the list refreshes. Stage, assignee, submitter data and due date don't change."
+                : action.startsWith('flag')
                 ? `Flagged requests move to the ${flagName} view the next time the list refreshes. Stage, assignee, submitter data and due date don't change.`
                 : `Requests move from the ${flagName} view to Standard requests the next time the list refreshes. Stage, assignee, submitter data and due date don't change.`}
             </Note>
@@ -239,21 +241,24 @@ function StandardActionModal({
 
 function CommentModal({
   selected,
+  mode,
   onClose,
   onConfirm,
 }: {
   selected: DsarRequest[]
+  mode?: 'public' | 'internal'
   onClose: () => void
   onConfirm: (params: ActionParams, ids: string[], skipped: number) => void
 }) {
-  const [kind, setKind] = React.useState<'public' | 'internal'>('public')
+  const [kind, setKind] = React.useState<'public' | 'internal'>(mode ?? 'public')
+  const publicOnly = mode === 'public'
   const [text, setText] = React.useState('')
   const [template, setTemplate] = React.useState<string | undefined>()
   const [attachments, setAttachments] = React.useState<string[]>([])
   const [replyAs, setReplyAs] = React.useState<ReplyAs>(null)
   const [confirming, setConfirming] = React.useState(false)
 
-  const params: ActionParams = { commentKind: kind, commentText: text, replyAs: kind === 'public' ? replyAs : null, attachments }
+  const params: ActionParams = { commentKind: kind, commentText: text, replyAs: kind === 'public' ? replyAs : null, attachments, publicOnly }
   const plan = React.useMemo(
     () => computePlan('comment', params, selected),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -301,14 +306,26 @@ function CommentModal({
   }
 
   return (
-    <ModalPanel size="md" title={`Add comment: ${n(selected.length)} selected`} onClose={onClose}>
+    <ModalPanel
+      size="md"
+      title={`${mode === 'public' ? 'Bulk public comment' : mode === 'internal' ? 'Bulk internal comment' : 'Add comment'}: ${n(selected.length)} selected`}
+      onClose={onClose}
+    >
       <div className="flex flex-col gap-4">
-        <Tabs value={kind} onValueChange={(v) => setKind(v as 'public' | 'internal')}>
-          <TabsList>
-            <TabsTrigger value="public">Public comment</TabsTrigger>
-            <TabsTrigger value="internal">Internal comment</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {mode ? (
+          <p className="text-sm font-light text-vt-grey-text">
+            {mode === 'public'
+              ? 'This message is sent to the data subject of each eligible request.'
+              : "This comment is added to each selected request. Data subjects won't see it."}
+          </p>
+        ) : (
+          <Tabs value={kind} onValueChange={(v) => setKind(v as 'public' | 'internal')}>
+            <TabsList>
+              <TabsTrigger value="public">Public comment</TabsTrigger>
+              <TabsTrigger value="internal">Internal comment</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
         <Field label="Response template">
           <Select
@@ -442,7 +459,7 @@ export function ActionLauncher({
   return (
     <Modal open onOpenChange={(open) => !open && onClose()}>
       {pending.action === 'comment' ? (
-        <CommentModal selected={selected} onClose={onClose} onConfirm={confirm} />
+        <CommentModal selected={selected} mode={pending.commentMode} onClose={onClose} onConfirm={confirm} />
       ) : (
         <StandardActionModal pending={pending} selected={selected} onClose={onClose} onConfirm={confirm} />
       )}

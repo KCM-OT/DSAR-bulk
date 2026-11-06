@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Columns3, Lock } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
 import { PageHeader } from '@/components/ui/page-header'
@@ -209,9 +209,25 @@ export function RequestsQueue() {
         actions={
           <>
             <Button>Create request</Button>
-            <Button variant="outline" size="icon" aria-label="Options">
-              <Icon name="ellipsis" size={24} />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={buttonVariants({ variant: 'outline', size: 'icon' })} aria-label="More options">
+                  <Icon name="ellipsis" size={24} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => pushToast({ tone: 'info', text: 'Export is not wired up in this prototype.' })}
+                >
+                  Export
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => pushToast({ tone: 'info', text: 'View archive is not wired up in this prototype.' })}
+                >
+                  View archive
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
         className="border-b border-vt-border pt-3 pb-3"
@@ -223,7 +239,15 @@ export function RequestsQueue() {
           totalInView={rows.length}
           onSelectCap={selectCap}
           onClear={() => setSelected(new Set())}
-          onAction={(action) => launch({ action, ids: [...selected] })}
+          onAction={(action) =>
+            launch(
+              action === 'public-comment'
+                ? { action: 'comment', ids: [...selected], commentMode: 'public' }
+                : action === 'internal-comment'
+                  ? { action: 'comment', ids: [...selected], commentMode: 'internal' }
+                  : { action, ids: [...selected] },
+            )
+          }
         />
       )}
 

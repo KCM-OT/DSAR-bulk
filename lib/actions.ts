@@ -15,6 +15,7 @@ export type ActionId =
   | 'flag-suspected'
   | 'remove-confirmed'
   | 'remove-suspected'
+  | 'move-to-standard'
 
 export type ReplyAs = null | 'completed' | 'rejected' | 'extended'
 
@@ -30,6 +31,8 @@ export type ActionParams = {
   deleteOpenSubtasks?: boolean
   /** True when launched for one request from its details page rather than as a bulk action. */
   single?: boolean
+  /** Comment launched as "Bulk public comment": no internal tab. */
+  publicOnly?: boolean
 }
 
 export const ACTION_LABELS: Record<ActionId, string> = {
@@ -46,11 +49,13 @@ export const ACTION_LABELS: Record<ActionId, string> = {
   'flag-suspected': 'Flag as suspected automation',
   'remove-confirmed': 'Remove confirmed automation flag',
   'remove-suspected': 'Remove suspected automation flag',
+  'move-to-standard': 'Move to standard queue',
 }
 
 export function jobLabel(action: ActionId, params: ActionParams) {
   if (action === 'comment') {
-    if (params.commentKind === 'internal') return 'Add internal comment'
+    if (params.commentKind === 'internal') return 'Bulk internal comment'
+    if (params.publicOnly) return params.replyAs ? `Bulk public comment (reply as ${params.replyAs})` : 'Bulk public comment'
     if (params.replyAs) return `Public comment (reply as ${params.replyAs})`
     return 'Add public comment'
   }
@@ -244,6 +249,16 @@ export function computePlan(action: ActionId, params: ActionParams, selected: Ds
       outcome = (kept) => workflowSplit(kept, params.workflow, `will have the ${flagName(flag)} flag removed and move to Standard requests`)
       break
     }
+    case 'move-to-standard':
+      rules = [
+        {
+          key: 'standard',
+          test: (r) => r.flag === null,
+          text: (n) => `${reqs(n)} ${isAre(n)} already in Standard requests, hence skipped`,
+        },
+      ]
+      outcome = (kept) => workflowSplit(kept, params.workflow, 'will have their automation flag removed and move to Standard requests')
+      break
   }
 
   const { kept, skipped } = partition(selected, rules)
@@ -360,6 +375,16 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
         changeWorkflow(r, params.workflow!, Boolean(params.deleteOpenSubtasks)),
         `Workflow changed from ${r.workflow} to ${params.workflow}${params.deleteOpenSubtasks ? '; open subtasks deleted' : ''}`,
       )
+    case 'move-to-standard': {
+      let next: DsarRequest = r.flag ? audit({ ...r, flag: null }, `${cap(flagName(r.flag))} flag removed; moved to Standard requests`) : r
+      if (canChangeWorkflow(r, params.workflow)) {
+        next = audit(
+          changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),
+          `Workflow changed from ${r.workflow} to ${params.workflow}${params.deleteOpenSubtasks ? '; open subtasks deleted' : ''}`,
+        )
+      }
+      return next
+    }
     case 'flag-confirmed':
     case 'flag-suspected':
     case 'remove-confirmed':

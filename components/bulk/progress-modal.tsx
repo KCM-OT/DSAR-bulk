@@ -199,7 +199,7 @@ function ProgressContent({ job }: { job: Job }) {
         {job.status === 'success' && (
           <Outcome icon="circle-check" tone="text-vt-status-success" title="Success">
             {job.total === 1 ? 'The request was processed.' : `All ${n(job.total)} were processed.`}
-            {job.skippedCount > 0 && ` ${job.skippedCount.toLocaleString()} ineligible requests were skipped before starting.`}
+            {job.skippedCount > 0 && ` ${job.skippedCount.toLocaleString()} ineligible ${job.skippedCount === 1 ? "request was" : "requests were"} skipped before starting.`}
           </Outcome>
         )}
 
