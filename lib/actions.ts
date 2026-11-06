@@ -63,6 +63,29 @@ export function jobLabel(action: ActionId, params: ActionParams) {
   return ACTION_LABELS[action]
 }
 
+const PAST_TENSE: Record<ActionId, string> = {
+  assign: 'assigned',
+  extend: 'extended',
+  reject: 'rejected',
+  close: 'closed',
+  'mark-read': 'marked as read',
+  'mark-unread': 'marked as unread',
+  comment: 'updated with your comment',
+  complete: 'completed',
+  'change-workflow': 'moved to the new workflow',
+  'flag-confirmed': 'flagged as confirmed automation',
+  'flag-suspected': 'flagged as suspected automation',
+  'remove-confirmed': 'unflagged',
+  'remove-suspected': 'unflagged',
+  'move-to-standard': 'moved to the standard queue',
+}
+
+/** Toast copy for a completed bulk action, e.g. "2 request(s) successfully rejected." */
+export function successMessage(action: ActionId, params: ActionParams, count: number) {
+  if (action === 'comment' && params.commentKind === 'public') return `Message successfully sent for ${count.toLocaleString()} request(s).`
+  return `${count.toLocaleString()} request(s) successfully ${PAST_TENSE[action]}.`
+}
+
 const TERMINAL: Stage[] = ['Complete', 'Rejected', 'Closed', 'Expired']
 /** Stages in which the workflow can't be changed (Story 6, AC 4). */
 export const WORKFLOW_LOCKED: Stage[] = ['Unverified', 'Rejected', 'Closed', 'Complete', 'Expired']

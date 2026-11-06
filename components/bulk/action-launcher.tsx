@@ -22,7 +22,8 @@ import { PlanSummary } from '@/components/bulk/plan-summary'
 import { RejectModal } from '@/components/bulk/reject-modal'
 import { ACTION_LABELS, computePlan, type ActionId, type ActionParams, type ReplyAs } from '@/lib/actions'
 import { ASSIGNEES, RESPONSE_TEMPLATES, WORKFLOWS } from '@/lib/mock-data'
-import { useStore } from '@/lib/store'
+import { BATCH_SIZE, useStore } from '@/lib/store'
+import { Loading } from '@/components/ui/loading'
 import type { DsarRequest } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -448,24 +449,76 @@ export function ActionLauncher({
   onClose: () => void
   onStarted: () => void
 }) {
-  const { byId, startJob } = useStore()
+  const { byId, jobs, startJob, watchJob, setOpenJobId, dismissJob } = useStore()
   // Freeze the selection when the modal opens so the summary doesn't shift underneath the user.
   const [selected] = React.useState(() => pending.ids.map((id) => byId.get(id)).filter((r): r is DsarRequest => Boolean(r)))
+  const [jobId, setJobId] = React.useState<string | null>(null)
+  const job = jobId ? jobs.find((j) => j.id === jobId) : undefined
+
+  // After submit the modal stays open with a loader until the job finishes. Success closes it
+  // (the store shows a toast); any other outcome opens the progress modal's result view.
+  React.useEffect(() => {
+    if (!job) return
+    if (job.status === 'queued' || job.status === 'running' || job.status === 'aborting') return
+    watchJob(job.id, false)
+    if (job.status === 'success') dismissJob(job.id)
+    else setOpenJobId(job.id)
+    onStarted()
+  }, [job, watchJob, setOpenJobId, dismissJob, onStarted])
 
   const confirm = (params: ActionParams, ids: string[], skipped: number) => {
-    startJob(pending.action, { ...params, single: pending.single }, ids, skipped)
-    onStarted()
+    const id = startJob(pending.action, { ...params, single: pending.single }, ids, skipped, undefined, { openModal: false })
+    watchJob(id, true)
+    setJobId(id)
   }
 
+  // Closing while the job runs leaves it running in the background (Story 7, AC 5).
+  const close = () => {
+    if (jobId) {
+      watchJob(jobId, false)
+      onStarted()
+    } else onClose()
+  }
+
+  const count = job?.total ?? 0
+  const processed = job?.processed ?? 0
+
   return (
-    <Modal open onOpenChange={(open) => !open && onClose()}>
-      {pending.action === 'comment' ? (
-        <CommentModal selected={selected} mode={pending.commentMode} onClose={onClose} onConfirm={confirm} />
-      ) : pending.action === 'reject' ? (
-        <RejectModal selected={selected} onClose={onClose} onConfirm={confirm} />
-      ) : (
-        <StandardActionModal pending={pending} selected={selected} onClose={onClose} onConfirm={confirm} />
-      )}
+    <Modal open onOpenChange={(open) => !open && close()}>
+      <div className="relative">
+        {pending.action === 'comment' ? (
+          <CommentModal selected={selected} mode={pending.commentMode} onClose={close} onConfirm={confirm} />
+        ) : pending.action === 'reject' ? (
+          <RejectModal selected={selected} onClose={close} onConfirm={confirm} />
+        ) : (
+          <StandardActionModal pending={pending} selected={selected} onClose={close} onConfirm={confirm} />
+        )}
+        {jobId && (
+          <div
+            aria-busy
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 rounded bg-vt-surface/85 backdrop-blur-[1px] animate-in fade-in-0"
+          >
+            <button
+              type="button"
+              aria-label="Close and keep running"
+              title="Close. The action keeps running."
+              onClick={close}
+              className="absolute top-4 right-4 grid size-8 place-items-center rounded text-vt-dark-text hover:bg-vt-information-light"
+            >
+              <Icon name="xmark" />
+            </button>
+            <Loading size="md" />
+            <p className="font-heading text-base font-medium" aria-live="polite">
+              Processing {count.toLocaleString()} request(s)...
+            </p>
+            {count > BATCH_SIZE && (
+              <p className="text-sm font-light text-vt-grey-text tabular-nums">
+                {processed.toLocaleString()} of {count.toLocaleString()} processed
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </Modal>
   )
 }

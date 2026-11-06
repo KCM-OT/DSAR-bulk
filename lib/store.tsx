@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { applyAction, FAILURE_REASONS, jobLabel, type ActionId, type ActionParams } from './actions'
+import { applyAction, FAILURE_REASONS, jobLabel, successMessage, type ActionId, type ActionParams } from './actions'
 import { generateRequests } from './mock-data'
 import type { DsarRequest } from './types'
 
@@ -31,6 +31,8 @@ export type Job = {
   reconnecting?: boolean
   frozen?: { processed: number; succeeded: number; failed: number }
   retryOf?: string
+  /** Shown inside its action modal's loader, so the jobs tray hides it. */
+  watched?: boolean
 }
 
 export type DemoSettings = {
@@ -40,7 +42,16 @@ export type DemoSettings = {
   dropConnectionNextJob: boolean
 }
 
-export type Toast = { id: string; tone: 'success' | 'warning' | 'error' | 'info'; text: string; jobId?: string }
+export type Toast = {
+  id: string
+  tone: 'success' | 'warning' | 'error' | 'info'
+  /** Defaults to Success / Warning / Error / Info by tone. */
+  title?: string
+  text: string
+  jobId?: string
+  /** Shows a progress bar that fills over one second (completed bulk actions). */
+  progress?: boolean
+}
 export type Notification = { id: string; text: string; at: number; jobId?: string; read: boolean }
 
 type Store = {
@@ -48,7 +59,16 @@ type Store = {
   byId: Map<string, DsarRequest>
   updateRequests: (ids: string[], fn: (r: DsarRequest) => DsarRequest) => void
   jobs: Job[]
-  startJob: (action: ActionId, params: ActionParams, ids: string[], skippedCount: number, retryOf?: string) => string
+  startJob: (
+    action: ActionId,
+    params: ActionParams,
+    ids: string[],
+    skippedCount: number,
+    retryOf?: string,
+    options?: { openModal?: boolean },
+  ) => string
+  /** A watched job belongs to an open action modal, which handles its non-success outcome itself. */
+  watchJob: (jobId: string, watched: boolean) => void
   requestAbort: (jobId: string) => void
   retryFailed: (jobId: string) => void
   retryJob: (jobId: string) => void
@@ -94,6 +114,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([])
   const [notifications, setNotifications] = React.useState<Notification[]>([])
   const abortRequested = React.useRef(new Set<string>())
+  const watched = React.useRef(new Set<string>())
 
   // Refs give the timer-driven runner the latest values without restarting it.
   const requestsRef = React.useRef(requests)
@@ -122,7 +143,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...(typeof patch === 'function' ? patch(job) : patch) } : job)))
   }, [])
 
-  const startJob = React.useCallback<Store['startJob']>((action, params, ids, skippedCount, retryOf) => {
+  const startJob = React.useCallback<Store['startJob']>((action, params, ids, skippedCount, retryOf, options) => {
     const id = uid('job')
     setJobs((prev) => [
       ...prev,
@@ -143,8 +164,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         retryOf,
       },
     ])
-    setOpenJobId(id)
+    if (options?.openModal !== false) setOpenJobId(id)
     return id
+  }, [])
+
+  const watchJob = React.useCallback((jobId: string, on: boolean) => {
+    if (on) watched.current.add(jobId)
+    else watched.current.delete(jobId)
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, watched: on } : j)))
   }, [])
 
   const requestAbort = React.useCallback(
@@ -196,12 +223,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ? `${job.label}: aborted (${succeeded} succeeded, ${notProcessed} not processed)`
               : `${job.label}: failed to run`
       setNotifications((prev) => [{ id: uid('n'), text, at: Date.now(), jobId: job.id, read: false }, ...prev])
-      if (openJobRef.current !== job.id) {
-        pushToast({
-          tone: status === 'success' ? 'success' : status === 'failed' ? 'error' : 'warning',
-          text,
-          jobId: job.id,
-        })
+      if (openJobRef.current === job.id) return
+      if (status === 'success') {
+        pushToast({ tone: 'success', title: 'Success', text: successMessage(job.action, job.params, succeeded), progress: true })
+      } else if (!watched.current.has(job.id)) {
+        pushToast({ tone: status === 'failed' ? 'error' : 'warning', text, jobId: job.id })
       }
     },
     [pushToast],
@@ -297,6 +323,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateRequests,
     jobs,
     startJob,
+    watchJob,
     requestAbort,
     retryFailed,
     retryJob,

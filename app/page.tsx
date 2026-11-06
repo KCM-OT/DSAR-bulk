@@ -13,8 +13,11 @@ export default function Page() {
         <RequestsQueue />
       </AppShell>
       <ProgressModal />
-      <JobsTray />
-      <Toasts />
+      {/* Bottom-right stack: toasts sit above any running or recent jobs. */}
+      <div className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-[360px] flex-col gap-2">
+        <Toasts />
+        <JobsTray />
+      </div>
       <DemoControls />
     </StoreProvider>
   )

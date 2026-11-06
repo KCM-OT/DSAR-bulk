@@ -11,40 +11,74 @@ import { Switch } from '@/components/ui/switch'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
+const TONE = {
+  success: { icon: 'circle-check', color: 'text-vt-status-success', bar: 'bg-vt-status-success', title: 'Success' },
+  warning: { icon: 'triangle-exclamation', color: 'text-vt-warning', bar: 'bg-vt-warning', title: 'Warning' },
+  error: { icon: 'circle-xmark', color: 'text-vt-error', bar: 'bg-vt-error', title: 'Error' },
+  info: { icon: 'circle-info', color: 'text-vt-information', bar: 'bg-vt-information', title: 'Info' },
+} as const
+
+/** Fills from 0 to 100% over one second after mounting. */
+function ToastProgress({ className }: { className: string }) {
+  const [full, setFull] = React.useState(false)
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setFull(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  return (
+    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={full ? 100 : 0} className="h-1 w-full bg-[#e5e5e5]">
+      <div className={cn('h-full transition-[width] duration-1000 ease-linear', className)} style={{ width: full ? '100%' : '0%' }} />
+    </div>
+  )
+}
+
+/**
+ * Toast, matching the DSAR Figma file ("Toast", node 4485:55026): 360px wide, a 24px status icon,
+ * a bold title over a 14px description, and a small close button.
+ */
 export function Toasts() {
   const { toasts, dismissToast, setOpenJobId, jobs } = useStore()
   return (
-    <div className="pointer-events-none fixed bottom-4 left-1/2 z-[60] flex w-[480px] -translate-x-1/2 flex-col gap-2">
+    <div className="flex w-full flex-col gap-2">
       {toasts.map((t) => {
-        const icon = { success: 'circle-check', warning: 'triangle-exclamation', error: 'circle-xmark', info: 'circle-info' }[t.tone] as
-          | 'circle-check'
-          | 'triangle-exclamation'
-          | 'circle-xmark'
-          | 'circle-info'
-        const color = { success: 'text-vt-status-success', warning: 'text-vt-warning', error: 'text-vt-error', info: 'text-vt-information' }[t.tone]
+        const tone = TONE[t.tone]
+        const canOpen = t.jobId && jobs.some((j) => j.id === t.jobId)
         return (
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto flex items-start gap-3 rounded border border-vt-border bg-vt-surface p-3 shadow-e4 animate-in fade-in-0 slide-in-from-bottom-2"
+            className="pointer-events-auto overflow-hidden rounded border border-vt-border bg-vt-surface shadow-e4 animate-in fade-in-0 slide-in-from-bottom-2"
           >
-            <Icon name={icon} variant="filled" size={20} className={color} />
-            <p className="flex-1 text-sm">{t.text}</p>
-            {t.jobId && jobs.some((j) => j.id === t.jobId) && (
-              <button
-                type="button"
-                className="text-sm text-vt-information hover:underline"
-                onClick={() => {
-                  setOpenJobId(t.jobId!)
-                  dismissToast(t.id)
-                }}
-              >
-                View details
-              </button>
-            )}
-            <button type="button" aria-label="Dismiss" onClick={() => dismissToast(t.id)} className="text-vt-grey-text hover:text-vt-dark-text">
-              <Icon name="xmark" size={14} />
-            </button>
+            {t.progress && <ToastProgress className={tone.bar} />}
+            <div className="flex flex-col gap-0 p-3">
+              <div className="flex items-center gap-2">
+                <Icon name={tone.icon} variant="filled" size={24} className={tone.color} />
+                <p className="min-w-0 flex-1 font-heading text-base leading-5 font-medium">{t.title ?? tone.title}</p>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => dismissToast(t.id)}
+                  className="grid size-6 place-items-center rounded text-vt-dark-text hover:bg-vt-information-light"
+                >
+                  <Icon name="xmark" size={14} />
+                </button>
+              </div>
+              <div className="pr-8 pl-8">
+                <p className="text-sm leading-5 font-light">{t.text}</p>
+                {canOpen && (
+                  <button
+                    type="button"
+                    className="mt-1 text-sm text-vt-information hover:underline"
+                    onClick={() => {
+                      setOpenJobId(t.jobId!)
+                      dismissToast(t.id)
+                    }}
+                  >
+                    View details
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )
       })}

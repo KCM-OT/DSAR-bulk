@@ -254,10 +254,10 @@ export function ProgressModal() {
 /** Minimized jobs, shown bottom-right so a running action stays visible after the modal closes. */
 export function JobsTray() {
   const { jobs, openJobId, setOpenJobId, dismissJob } = useStore()
-  const visible = jobs.filter((j) => j.id !== openJobId)
+  const visible = jobs.filter((j) => j.id !== openJobId && !j.watched)
   if (visible.length === 0) return null
   return (
-    <div className="fixed right-4 bottom-4 z-30 flex w-80 flex-col gap-2">
+    <div className="pointer-events-auto flex w-full flex-col gap-2">
       {visible.map((job) => {
         const running = job.status === 'running' || job.status === 'aborting'
         const pct = job.total ? (job.processed / job.total) * 100 : 0

@@ -23,7 +23,7 @@ Then open http://localhost:3100.
 | 3. Complete | Bulk bar, **Complete**. The button is greyed out with a tooltip when none of the selected requests is eligible. |
 | 4 and 5. Flag and remove flag | Bulk bar **⋯**, under Automation flag. You can optionally pick a workflow, and the summary breaks down "flag + workflow" against "flag only". The same actions are on a single request in its details drawer: click a request ID, then **Actions**. |
 | 6. Change workflow | Bulk bar, **Change workflow**. It has the "Delete subtasks currently open" toggle, and a workflow is disabled when every selected request is already in it. |
-| 7. Progress modal | Opens for every bulk action. It shows batches of 20 and "X of Y processed". **Minimize** sends the job to a tray at the bottom right, and a toast plus a notification-bell entry appear when it finishes. |
+| 7. Progress and outcome | After you submit, the action modal shows a loader until the job finishes. On success it closes and a Success toast appears, with its bar filling over one second. Errors, an abort or a failed start open the progress modal's result view instead. Closing the modal while it loads leaves the job running in the tray at the bottom right. |
 | 8. Reliable execution | "Select 500 items" replaces "Select all X items". Overlapping jobs queue up. |
 | 9. Abort and retry | **Abort** asks you to confirm, then the current batch finishes and nothing is rolled back. Use **Retry failed** or **Retry** to run it again. |
 

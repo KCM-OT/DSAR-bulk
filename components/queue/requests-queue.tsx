@@ -200,6 +200,13 @@ export function RequestsQueue() {
   )
 
   const launch = (p: PendingAction) => setPending(p)
+  const pendingRef = React.useRef(pending)
+  pendingRef.current = pending
+  const onLauncherDone = React.useCallback(() => {
+    const done = pendingRef.current
+    setPending(null)
+    if (done && !done.single) setSelected(new Set())
+  }, [])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
@@ -397,10 +404,7 @@ export function RequestsQueue() {
         <ActionLauncher
           pending={pending}
           onClose={() => setPending(null)}
-          onStarted={() => {
-            setPending(null)
-            if (!pending.single) setSelected(new Set())
-          }}
+          onStarted={onLauncherDone}
         />
       )}
       <RequestDrawer
