@@ -233,23 +233,6 @@ export function RequestsQueue() {
         className="border-b border-vt-border pt-3 pb-3"
       />
 
-      {selected.size > 0 && (
-        <BulkBar
-          selected={selectedRequests}
-          totalInView={rows.length}
-          onSelectCap={selectCap}
-          onClear={() => setSelected(new Set())}
-          onAction={(action) =>
-            launch(
-              action === 'public-comment'
-                ? { action: 'comment', ids: [...selected], commentMode: 'public' }
-                : action === 'internal-comment'
-                  ? { action: 'comment', ids: [...selected], commentMode: 'internal' }
-                  : { action, ids: [...selected] },
-            )
-          }
-        />
-      )}
 
       <div className="flex flex-col gap-4 p-4">
         {bannerOpen && (
@@ -276,7 +259,31 @@ export function RequestsQueue() {
           </section>
         )}
 
-        <section className="flex min-h-0 flex-col rounded border border-vt-border bg-vt-surface">
+        {/* The bulk panel sits on top of the table card and shares its border, so the two read as one unit. */}
+        <div className="flex min-h-0 flex-col">
+          {selected.size > 0 && (
+            <BulkBar
+              selected={selectedRequests}
+              totalInView={rows.length}
+              onSelectCap={selectCap}
+              onClear={() => setSelected(new Set())}
+              onAction={(action) =>
+                launch(
+                  action === 'public-comment'
+                    ? { action: 'comment', ids: [...selected], commentMode: 'public' }
+                    : action === 'internal-comment'
+                      ? { action: 'comment', ids: [...selected], commentMode: 'internal' }
+                      : { action, ids: [...selected] },
+                )
+              }
+            />
+          )}
+        <section
+          className={cn(
+            'flex min-h-0 flex-col rounded border border-vt-border bg-vt-surface',
+            selected.size > 0 && 'rounded-t-none',
+          )}
+        >
           <div className="flex items-center border-b border-vt-border">
             <ViewPicker view={view} onChange={changeView} counts={counts} />
             <div className="px-4">
@@ -383,6 +390,7 @@ export function RequestsQueue() {
             <Pagination page={page} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} />
           </div>
         </section>
+        </div>
       </div>
 
       {pending && (

@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 export type BulkMenuAction = ActionId | 'public-comment' | 'internal-comment'
 
 /**
- * Contextual bulk action panel, matching the DSAR Figma file ("Bulk Action Panel", node 4306:6360):
+ * Contextual bulk action panel, attached to the top of the table card. Matching the DSAR Figma file ("Bulk Action Panel", node 4306:6360):
  * a 90px #e8f1f6 band, content right-aligned with an 8px gap. It holds the selection count over a
  * blue "select all" link, secondary Assign and Extend buttons, a bordered overflow icon button,
  * and a trailing close button.
@@ -61,7 +61,7 @@ export function BulkBar({
     <div
       role="region"
       aria-label="Bulk actions"
-      className="sticky top-0 z-20 flex h-[90px] shrink-0 items-center justify-end gap-2 border-b border-vt-border bg-vt-information-light px-6"
+      className="flex h-[90px] shrink-0 items-center justify-end gap-2 rounded-t border border-b-0 border-vt-border bg-vt-information-light px-6"
     >
       <div className="flex items-center gap-2">
         <div className="flex w-36 flex-col items-center">
