@@ -8,80 +8,73 @@ import { Icon } from '@/components/ui/icon'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { useStore } from '@/lib/store'
+import { Toast as VitreusToast } from '@/components/ui/toast'
+import { useStore, type Toast as StoreToast } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
-const TONE = {
-  success: { icon: 'circle-check', color: 'text-vt-status-success', bar: 'bg-vt-status-success', title: 'Success' },
-  warning: { icon: 'triangle-exclamation', color: 'text-vt-warning', bar: 'bg-vt-warning', title: 'Warning' },
-  error: { icon: 'circle-xmark', color: 'text-vt-error', bar: 'bg-vt-error', title: 'Error' },
-  info: { icon: 'circle-info', color: 'text-vt-information', bar: 'bg-vt-information', title: 'Info' },
-} as const
-
-/** Fills from 0 to 100% over one second after mounting. */
-function ToastProgress({ className }: { className: string }) {
-  const [full, setFull] = React.useState(false)
+/** Drives the Vitreus Toast progress bar from 0 to 1 over one second (completed bulk actions). */
+function useOneSecondProgress(enabled: boolean) {
+  const [value, setValue] = React.useState(0)
   React.useEffect(() => {
-    const frame = requestAnimationFrame(() => setFull(true))
+    if (!enabled) return
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const next = Math.min(1, (now - start) / 1000)
+      setValue(next)
+      if (next < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [])
+  }, [enabled])
+  return enabled ? value : undefined
+}
+
+function ToastEntry({ toast: t }: { toast: StoreToast }) {
+  const { dismissToast, setOpenJobId, jobs } = useStore()
+  const progress = useOneSecondProgress(Boolean(t.progress))
+  // Vitreus defines Success and Error toasts only, so every non-success outcome uses Error.
+  const type = t.tone === 'success' ? 'success' : 'error'
+  const title = t.title ?? (t.tone === 'success' ? 'Success' : t.tone === 'warning' ? 'Completed with issues' : t.tone === 'info' ? 'Note' : 'Error')
+  const canOpen = t.jobId && jobs.some((j) => j.id === t.jobId)
   return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={full ? 100 : 0} className="h-1 w-full bg-[#e5e5e5]">
-      <div className={cn('h-full transition-[width] duration-1000 ease-linear', className)} style={{ width: full ? '100%' : '0%' }} />
-    </div>
+    <VitreusToast
+      type={type}
+      title={title}
+      // The store controls dismissal; a frozen progress value (or none) keeps the Vitreus timer off.
+      duration={t.progress ? 1000 : null}
+      progress={progress}
+      onClose={() => dismissToast(t.id)}
+      className="vt-toast-enter"
+      description={
+        <>
+          {t.text}
+          {canOpen && (
+            <button
+              type="button"
+              className="ml-1 text-vt-information hover:underline"
+              onClick={() => {
+                setOpenJobId(t.jobId!)
+                dismissToast(t.id)
+              }}
+            >
+              View details
+            </button>
+          )}
+        </>
+      }
+    />
   )
 }
 
-/**
- * Toast, matching the DSAR Figma file ("Toast", node 4485:55026): 360px wide, a 24px status icon,
- * a bold title over a 14px description, and a small close button.
- */
+/** Toasts use the Vitreus Toast component; they stack in the bottom-right corner above the jobs tray. */
 export function Toasts() {
-  const { toasts, dismissToast, setOpenJobId, jobs } = useStore()
+  const { toasts } = useStore()
   return (
     <div className="flex w-full flex-col gap-2">
-      {toasts.map((t) => {
-        const tone = TONE[t.tone]
-        const canOpen = t.jobId && jobs.some((j) => j.id === t.jobId)
-        return (
-          <div
-            key={t.id}
-            role="status"
-            className="pointer-events-auto overflow-hidden rounded border border-vt-border bg-vt-surface shadow-e4 animate-in fade-in-0 slide-in-from-bottom-2"
-          >
-            {t.progress && <ToastProgress className={tone.bar} />}
-            <div className="flex flex-col gap-0 p-3">
-              <div className="flex items-center gap-2">
-                <Icon name={tone.icon} variant="filled" size={24} className={tone.color} />
-                <p className="min-w-0 flex-1 font-heading text-base leading-5 font-medium">{t.title ?? tone.title}</p>
-                <button
-                  type="button"
-                  aria-label="Dismiss"
-                  onClick={() => dismissToast(t.id)}
-                  className="grid size-6 place-items-center rounded text-vt-dark-text hover:bg-vt-information-light"
-                >
-                  <Icon name="xmark" size={14} />
-                </button>
-              </div>
-              <div className="pr-8 pl-8">
-                <p className="text-sm leading-5 font-light">{t.text}</p>
-                {canOpen && (
-                  <button
-                    type="button"
-                    className="mt-1 text-sm text-vt-information hover:underline"
-                    onClick={() => {
-                      setOpenJobId(t.jobId!)
-                      dismissToast(t.id)
-                    }}
-                  >
-                    View details
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })}
+      {toasts.map((t) => (
+        <ToastEntry key={t.id} toast={t} />
+      ))}
     </div>
   )
 }

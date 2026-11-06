@@ -66,6 +66,9 @@
   --color-vt-status-success: var(--vt-status-success);
   --color-vt-empty: var(--vt-empty);
   --color-vt-focus-ring: var(--vt-focus-ring);
+  --color-vt-toast-success-bg: var(--vt-toast-success-bg);
+  --color-vt-toast-error-bg: var(--vt-toast-error-bg);
+  --shadow-vt-toast: 0 1px 3px rgb(0 0 0 / 0.2), 0 2px 2px rgb(0 0 0 / 0.12), 0 0 2px rgb(0 0 0 / 0.14);
 
   --color-vt-risk-very-low: var(--vt-risk-very-low);
   --color-vt-risk-very-low-light: var(--vt-risk-very-low-light);
@@ -154,6 +157,8 @@
   --vt-status-success: #028a02;
   --vt-empty: #cccccc;
   --vt-focus-ring: #167cbb;
+  --vt-toast-success-bg: #f7faf8;
+  --vt-toast-error-bg: #fdf9f9;
 
   --vt-risk-very-low: #2c6145;
   --vt-risk-very-low-light: #eaefec;
@@ -232,5 +237,51 @@
   h5,
   h6 {
     @apply font-heading;
+  }
+}
+
+@keyframes vt-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes vt-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes vt-toast-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.vt-toast-enter {
+  animation: vt-toast-in 360ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.vt-toast-exit {
+  animation: vt-toast-out 200ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-toast-enter,
+  .vt-toast-exit {
+    animation: none;
   }
 }
