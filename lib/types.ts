@@ -23,6 +23,8 @@ export type Comment = {
   kind: 'public' | 'internal'
   text: string
   attachments: string[]
+  /** Request stage when the comment was added. */
+  stage?: Stage
 }
 
 export type DsarRequest = {
@@ -47,6 +49,8 @@ export type DsarRequest = {
   requiredSubtaskOpen: boolean
   comments: Comment[]
   audit: AuditEntry[]
+  /** Set when the request is rejected with a resolution. */
+  resolution?: string
 }
 
 export type ViewId =

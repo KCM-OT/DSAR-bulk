@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Open_Sans } from 'next/font/google'
 import localFont from 'next/font/local'
+import { Providers } from '@/components/providers'
 import './globals.css'
 
 const openSans = Open_Sans({
@@ -38,7 +39,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`bg-background ${openSans.variable} ${antiqueLegacy.variable}`}>
-      <body className="antialiased font-sans">{children}</body>
+      <body className="antialiased font-sans">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   )
 }

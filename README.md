@@ -21,7 +21,7 @@ Then open http://localhost:3100.
 | 1. Seeded saved views | The view picker ("All requests"). Standard, Confirmed and Suspected counts add up to All. A request moves view when the list refreshes, which happens automatically when a job finishes or when you click Refresh. |
 | 2. Add comment | Bulk bar, **Add comment**. It has Public and Internal tabs, templates, attachments, the Reply split button (as completed, rejected or extended), and a confirmation step with skip reasons. |
 | 3. Complete | Bulk bar, **Complete**. The button is greyed out with a tooltip when none of the selected requests is eligible. |
-| 4 and 5. Flag and remove flag | Bulk bar **⋯**, under Automation flag. You can optionally pick a workflow, and the summary breaks down "flag + workflow" against "flag only". The same actions are on a single request in its details drawer: click a request ID, then **Actions**. |
+| 4 and 5. Flag and remove flag | Bulk panel **⋯**, under Automation flag. You can optionally pick a workflow, and the summary breaks down "flag + workflow" against "flag only". The same actions are on a single request: click its ID to open the detail page, then use the header **⋯** menu. |
 | 6. Change workflow | Bulk bar, **Change workflow**. It has the "Delete subtasks currently open" toggle, and a workflow is disabled when every selected request is already in it. |
 | 7. Progress and outcome | After you submit, the action modal shows a loader until the job finishes. On success it closes and a Success toast appears, with its bar filling over one second. Errors, an abort or a failed start open the progress modal's result view instead. Closing the modal while it loads leaves the job running in the tray at the bottom right. |
 | 8. Reliable execution | "Select 500 items" replaces "Select all X items". Overlapping jobs queue up. |
@@ -30,6 +30,10 @@ Then open http://localhost:3100.
 **Prototype controls** (bottom left) let you force each outcome. You can set the failure rate and
 processing speed, make the next job fail to start, or drop the connection during the next job. You
 can also reset the mock data.
+
+## Request detail page
+
+Click a request ID to open `/requests/<ID>`, a copy of the QA detail page. It has the header with the stage badge and a ⋯ menu, the left details column, the request card with Show more, the stage path with Advance, the stage guidance, and the ID verification, Subtasks, Activity and History tabs. Posting a comment, Advance, Reject, Close, Extend, Change workflow and the flag actions all work. The other menu items show a "not wired up" note.
 
 ## Prototype assumptions (not in the PRD)
 

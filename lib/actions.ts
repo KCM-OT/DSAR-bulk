@@ -360,7 +360,10 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
         'Deadline extended by 45 days',
       )
     case 'reject': {
-      let next = audit({ ...r, stage: 'Rejected' as Stage }, `Request rejected${params.reason ? `: ${params.reason}` : ''}`)
+      let next = audit(
+        { ...r, stage: 'Rejected' as Stage, resolution: params.reason },
+        `Request rejected${params.reason ? `: ${params.reason}` : ''}`,
+      )
       if (params.commentText?.trim()) {
         const kind = params.commentKind ?? 'internal'
         next = audit(
@@ -371,6 +374,7 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
                 at: new Date().toISOString(),
                 by: CURRENT_USER,
                 kind,
+                stage: r.stage,
                 text: params.commentText.replaceAll('{{RequestId}}', r.id).replaceAll('{{SubjectFirstName}}', r.name.split(' ')[0]),
                 attachments: params.attachments ?? [],
               },
@@ -397,6 +401,7 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
             at: new Date().toISOString(),
             by: CURRENT_USER,
             kind,
+            stage: r.stage,
             text: (params.commentText ?? '').replaceAll('{{RequestId}}', r.id).replaceAll('{{SubjectFirstName}}', r.name.split(' ')[0]),
             attachments: params.attachments ?? [],
           },

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { Columns3, Lock } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -20,7 +21,6 @@ import {
 import { FlagBadge, StageBadge, Tooltip } from '@/components/common'
 import { BulkBar } from '@/components/queue/bulk-bar'
 import { ActionLauncher, type PendingAction } from '@/components/bulk/action-launcher'
-import { RequestDrawer } from '@/components/request-drawer'
 import { daysLeft, formatDate } from '@/lib/mock-data'
 import { MAX_SELECTION, useStore } from '@/lib/store'
 import type { DsarRequest, ViewId } from '@/lib/types'
@@ -118,7 +118,6 @@ export function RequestsQueue() {
   const [sort, setSort] = React.useState<{ key: SortKey; dir: Exclude<SortDirection, false> }>({ key: 'createdAt', dir: 'desc' })
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [pending, setPending] = React.useState<PendingAction | null>(null)
-  const [drawerId, setDrawerId] = React.useState<string | null>(null)
   const [bannerOpen, setBannerOpen] = React.useState(true)
 
   // View membership is evaluated against a snapshot taken at the last refresh (Story 1, AC 9).
@@ -354,14 +353,13 @@ export function RequestsQueue() {
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(r.id)} aria-label={`Select ${r.id}`} />
                     </TableCell>
                     <TableCell>
-                      <button
-                        type="button"
-                        onClick={() => setDrawerId(r.id)}
+                      <Link
+                        href={`/requests/${r.id}`}
                         className="inline-flex items-center gap-1.5 font-medium text-vt-information hover:underline"
                       >
                         {r.unread && <span className="size-1.5 rounded-full bg-vt-information" aria-label="Unread" />}
                         {r.id}
-                      </button>
+                      </Link>
                     </TableCell>
                     <TableCell className={cn('font-light', r.unread && 'font-medium')}>{r.name}</TableCell>
                     <TableCell>
@@ -407,11 +405,6 @@ export function RequestsQueue() {
           onStarted={onLauncherDone}
         />
       )}
-      <RequestDrawer
-        requestId={drawerId}
-        onClose={() => setDrawerId(null)}
-        onAction={(action, id) => launch({ action, ids: [id], single: true })}
-      />
     </div>
   )
 }

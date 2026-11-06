@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { BarChart3, Building2, CircleHelp, Inbox, LayoutDashboard, LayoutGrid, ListChecks, Settings, Sparkles, Wrench } from 'lucide-react'
 
 import { Icon } from '@/components/ui/icon'
@@ -93,6 +94,7 @@ function NotificationsMenu() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-vt-background">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-vt-border bg-vt-surface px-2">
@@ -140,6 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           moduleName="Privacy Rights Automation"
           items={NAV}
           activeId="requests"
+          onNavigate={(id) => id === 'requests' && router.push('/')}
           theme="dark"
           searchable={false}
           className="w-60"
