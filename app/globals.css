@@ -1,0 +1,236 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* Vitreus semantic tokens (OneTrust design system) */
+  --color-vt-dark-text: var(--vt-dark-text);
+  --color-vt-grey-text: var(--vt-grey-text);
+  --color-vt-light-text: var(--vt-light-text);
+  --color-vt-link-text: var(--vt-link-text);
+  --color-vt-surface: var(--vt-surface);
+  --color-vt-table-header: var(--vt-table-header);
+  --color-vt-background: var(--vt-background);
+  --color-vt-border: var(--vt-border);
+
+  --color-vt-primary-1: var(--vt-primary-1);
+  --color-vt-primary-2: var(--vt-primary-2);
+  --color-vt-primary-3: var(--vt-primary-3);
+  --color-vt-secondary-1: var(--vt-secondary-1);
+  --color-vt-secondary-2: var(--vt-secondary-2);
+  --color-vt-secondary-3: var(--vt-secondary-3);
+
+  --color-vt-information: var(--vt-information);
+  --color-vt-information-light: var(--vt-information-light);
+  --color-vt-information-mid: var(--vt-information-mid);
+  --color-vt-warning: var(--vt-warning);
+  --color-vt-warning-light: var(--vt-warning-light);
+  --color-vt-error: var(--vt-error);
+  --color-vt-error-light: var(--vt-error-light);
+  --color-vt-success: var(--vt-success);
+  --color-vt-success-light: var(--vt-success-light);
+  --color-vt-status-success: var(--vt-status-success);
+  --color-vt-empty: var(--vt-empty);
+  --color-vt-focus-ring: var(--vt-focus-ring);
+
+  --color-vt-risk-very-low: var(--vt-risk-very-low);
+  --color-vt-risk-very-low-light: var(--vt-risk-very-low-light);
+  --color-vt-risk-low: var(--vt-risk-low);
+  --color-vt-risk-low-light: var(--vt-risk-low-light);
+  --color-vt-risk-medium: var(--vt-risk-medium);
+  --color-vt-risk-medium-light: var(--vt-risk-medium-light);
+  --color-vt-risk-high: var(--vt-risk-high);
+  --color-vt-risk-high-light: var(--vt-risk-high-light);
+  --color-vt-risk-very-high: var(--vt-risk-very-high);
+  --color-vt-risk-very-high-light: var(--vt-risk-very-high-light);
+
+  --color-vt-graphic-1: var(--vt-graphic-1);
+  --color-vt-graphic-2: var(--vt-graphic-2);
+  --color-vt-graphic-3: var(--vt-graphic-3);
+  --color-vt-graphic-4: var(--vt-graphic-4);
+  --color-vt-graphic-5: var(--vt-graphic-5);
+  --color-vt-graphic-6: var(--vt-graphic-6);
+  --color-vt-graphic-7: var(--vt-graphic-7);
+  --color-vt-graphic-8: var(--vt-graphic-8);
+  --color-vt-graphic-9: var(--vt-graphic-9);
+
+  --color-vt-control-border: var(--vt-control-border);
+  --color-vt-control-disabled-bg: var(--vt-control-disabled-bg);
+  --color-vt-ai-modified: var(--vt-ai-modified);
+  --color-vt-ai-border: var(--vt-ai-border);
+
+  --font-sans: var(--font-open-sans);
+  --font-heading: var(--font-antique-legacy);
+
+  --shadow-e1: 0px 1px 2px 0px rgba(26, 26, 26, 0.08), 0px 1px 3px 0px rgba(26, 26, 26, 0.1);
+  --shadow-e2: 0px 2px 4px -1px rgba(26, 26, 26, 0.08), 0px 4px 6px -1px rgba(26, 26, 26, 0.1);
+  --shadow-e3: 0px 4px 6px -2px rgba(26, 26, 26, 0.08), 0px 10px 15px -3px rgba(26, 26, 26, 0.1);
+  --shadow-e4: 0px 8px 10px -4px rgba(26, 26, 26, 0.08), 0px 16px 24px -4px rgba(26, 26, 26, 0.12);
+  --shadow-e5: 0px 12px 16px -6px rgba(26, 26, 26, 0.1), 0px 24px 32px -6px rgba(26, 26, 26, 0.14);
+  --shadow-e6: 0px 16px 24px -8px rgba(26, 26, 26, 0.12), 0px 32px 48px -8px rgba(26, 26, 26, 0.18);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@utility font-heading {
+  font-family: var(--font-heading);
+}
+
+:root {
+  color-scheme: light;
+
+  /* Vitreus foundation colors, grounded against the Vitreus UI Kit Figma file.
+     Risk / graphic / secondary tone assignments are best-effort from the
+     foundations swatch page and will be re-grounded against each live
+     component frame (Button, Badge, Table, Status) as it is implemented. */
+  --vt-dark-text: #1a1a1a;
+  --vt-grey-text: #4d4d4d;
+  --vt-light-text: #ffffff;
+  --vt-link-text: #1470a9;
+  --vt-surface: #ffffff;
+  --vt-table-header: #f8f8f8;
+  --vt-background: #f7f7f7;
+  --vt-border: #cccccc;
+
+  /* Brand primary is green (buttons, primary actions); blue is reserved
+     for links/information — grounded against the ❖ Buttons and ❖ Badge
+     component frames (not the foundations swatch page). */
+  --vt-primary-1: #2c6145;
+  --vt-primary-2: #468254;
+  --vt-primary-3: #a2c0a9;
+  --vt-secondary-1: #cb347d;
+  --vt-secondary-2: #cee1ea;
+  --vt-secondary-3: #f7fafb;
+
+  --vt-information: #1470a9;
+  --vt-information-light: #e8f1f6;
+  --vt-information-mid: #5c9cb9;
+  --vt-warning: #da7c01;
+  --vt-warning-light: #fbf2e6;
+  --vt-error: #b30000;
+  --vt-error-light: #f7e6e6;
+  --vt-success: #4f9d81;
+  --vt-success-light: #edf5f2;
+  --vt-status-success: #028a02;
+  --vt-empty: #cccccc;
+  --vt-focus-ring: #167cbb;
+
+  --vt-risk-very-low: #2c6145;
+  --vt-risk-very-low-light: #eaefec;
+  --vt-risk-low: #4f9d81;
+  --vt-risk-low-light: #edf5f2;
+  --vt-risk-medium: #da7c01;
+  --vt-risk-medium-light: #fbf2e6;
+  --vt-risk-high: #cd491d;
+  --vt-risk-high-light: #faede8;
+  --vt-risk-very-high: #b30000;
+  --vt-risk-very-high-light: #f7e6e6;
+
+  --vt-graphic-1: #1470a9;
+  --vt-graphic-2: #7e57c2;
+  --vt-graphic-3: #ab47bc;
+  --vt-graphic-4: #4a148c;
+  --vt-graphic-5: #546e7a;
+  --vt-graphic-6: #1976d2;
+  --vt-graphic-7: #01579b;
+  --vt-graphic-8: #cb347d;
+  --vt-graphic-9: #2e447d;
+  --vt-ai-start: #0788f7;
+  --vt-ai-end: #976fe6;
+  --vt-ai-border: #d4daf5;
+
+  /* Form control tokens, grounded against the ❖ Input and ❖ Checkbox frames */
+  --vt-control-border: #767676;
+  --vt-control-disabled-bg: #e5e5e5;
+  --vt-ai-modified: #8858e7;
+
+  --background: #f7f7f7;
+  --foreground: var(--vt-dark-text);
+  --card: var(--vt-surface);
+  --card-foreground: var(--vt-dark-text);
+  --popover: var(--vt-surface);
+  --popover-foreground: var(--vt-dark-text);
+  --primary: var(--vt-primary-1);
+  --primary-foreground: #ffffff;
+  --secondary: var(--vt-primary-3);
+  --secondary-foreground: var(--vt-dark-text);
+  --muted: #f0f0f0;
+  --muted-foreground: var(--vt-grey-text);
+  --accent: var(--vt-information-light);
+  --accent-foreground: var(--vt-primary-1);
+  --destructive: var(--vt-error);
+  --border: var(--vt-border);
+  --input: var(--vt-border);
+  --ring: var(--vt-focus-ring);
+  --chart-1: var(--vt-graphic-1);
+  --chart-2: var(--vt-graphic-2);
+  --chart-3: var(--vt-graphic-3);
+  --chart-4: var(--vt-graphic-5);
+  --chart-5: var(--vt-graphic-6);
+  --radius: 0.5rem;
+  --sidebar: #1a1a1a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--vt-primary-1);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #292b2e;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #333333;
+  --sidebar-ring: var(--vt-focus-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+  }
+}

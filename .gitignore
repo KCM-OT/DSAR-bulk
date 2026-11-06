@@ -1,0 +1,11 @@
+node_modules
+.next/
+.vercel/
+.env*.local
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo
+
+# Internal material kept local only
+PRD- Bulk Action Improvements.md
+reference/
