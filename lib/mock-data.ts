@@ -172,6 +172,18 @@ export function formatDate(iso: string) {
   return `${date} ${time}`
 }
 
+/** Queue table date format: 2026/10/27 06:13 (24-hour). */
+export function formatTableDate(iso: string) {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Work email shown under the approver's name in the queue table. */
+export function emailFor(name: string) {
+  return `${name.toLowerCase().replace(/\s+/g, '.')}@onetrust.com`
+}
+
 /** Resolutions offered in the Bulk reject modal, each with its own saved responses. */
 export const REJECT_RESOLUTIONS: { id: string; label: string; responses: { id: string; name: string; body: string }[] }[] = [
   { id: 'none', label: 'None', responses: [] },

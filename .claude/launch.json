@@ -6,6 +6,11 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3100
+    },
+    {
+      "name": "dsar-bulk-running",
+      "url": "http://localhost:3100",
+      "port": 3100
     }
   ]
 }

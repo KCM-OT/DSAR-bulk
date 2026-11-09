@@ -38,23 +38,30 @@ export function Tooltip({
   )
 }
 
-const stageVariant: Record<Stage, React.ComponentProps<typeof Badge>['variant']> = {
-  New: 'primary',
-  Unverified: 'default',
-  'Verifying identity': 'metadata',
-  'In progress': 'warning',
-  'Awaiting data': 'purple',
-  Complete: 'success',
-  Rejected: 'danger',
-  Closed: 'default',
-  Expired: 'orange',
+/** Outlined stage pills from the queue table design: tinted fill, coloured border, dark uppercase label. */
+const stageTone: Record<Stage, string> = {
+  New: 'border-vt-information bg-vt-information-light',
+  Unverified: 'border-vt-grey-text bg-vt-background',
+  'Verifying identity': 'border-vt-warning bg-vt-warning-light',
+  'In progress': 'border-vt-information bg-vt-information-light',
+  'Awaiting data': 'border-vt-graphic-2 bg-[#f2eef9]',
+  Complete: 'border-vt-success bg-vt-success-light',
+  Rejected: 'border-vt-error bg-vt-error-light',
+  Closed: 'border-vt-grey-text bg-vt-background',
+  Expired: 'border-vt-risk-high bg-vt-risk-high-light',
 }
 
-export function StageBadge({ stage }: { stage: Stage }) {
+export function StageBadge({ stage, className }: { stage: Stage; className?: string }) {
   return (
-    <Badge variant={stageVariant[stage]} size="small" tabIndex={-1} className="uppercase tracking-wide">
+    <span
+      className={cn(
+        'inline-flex h-6 items-center rounded-full border px-2 font-sans text-xs leading-4 font-normal whitespace-nowrap text-vt-dark-text uppercase',
+        stageTone[stage],
+        className,
+      )}
+    >
       {stage}
-    </Badge>
+    </span>
   )
 }
 

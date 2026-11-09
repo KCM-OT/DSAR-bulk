@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Columns3, Lock } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowDown, ArrowUp, Columns3, Download, ListFilter, Lock, MoveVertical, Plus, RotateCw, User } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Icon } from '@/components/ui/icon'
 import { PageHeader } from '@/components/ui/page-header'
-import { Pagination } from '@/components/ui/pagination'
+import { Avatar } from '@/components/ui/avatar'
 import { SearchInput } from '@/components/ui/search-input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, type SortDirection } from '@/components/ui/table'
 import {
@@ -18,18 +19,83 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { FlagBadge, StageBadge, Tooltip } from '@/components/common'
+import { StageBadge, Tooltip } from '@/components/common'
 import { BulkBar } from '@/components/queue/bulk-bar'
+import { QueuePagination } from '@/components/queue/queue-pagination'
 import { ActionLauncher, type PendingAction } from '@/components/bulk/action-launcher'
-import { daysLeft, formatDate } from '@/lib/mock-data'
+import { daysLeft, emailFor, formatTableDate } from '@/lib/mock-data'
 import { MAX_SELECTION, useStore } from '@/lib/store'
 import type { DsarRequest, ViewId } from '@/lib/types'
 import { VIEWS } from '@/lib/views'
 import { cn } from '@/lib/utils'
 
-const PAGE_SIZE = 50
+type SortKey = 'alerts' | 'createdAt' | 'daysLeft' | 'subtasks'
+type SortState = { key: SortKey; dir: Exclude<SortDirection, false> }
 
-type SortKey = 'createdAt' | 'daysLeft' | 'id' | 'name'
+/** Empty-cell placeholder used across the queue table ("- - - -"). */
+function Dashes({ count = 5 }: { count?: number }) {
+  return (
+    <span className="text-vt-dark-text" aria-label="None">
+      {Array.from({ length: count }, () => '-').join(' ')}
+    </span>
+  )
+}
+
+/** Sortable header: a vertical double arrow when unsorted, an up/down arrow when sorted. */
+function SortHead({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string
+  sortKey: SortKey
+  sort: SortState
+  onSort: (key: SortKey) => void
+  className?: string
+}) {
+  const active = sort.key === sortKey
+  const SortIcon = !active ? MoveVertical : sort.dir === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <TableHead
+      className={cn('border-t-0', className)}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="-mx-1 flex items-center gap-1.5 rounded px-1 outline-none focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+      >
+        {label}
+        <SortIcon className="size-4 text-vt-dark-text" strokeWidth={1.75} aria-hidden />
+      </button>
+    </TableHead>
+  )
+}
+
+const AVATAR_TONES = [5, 1, 2, 7, 3, 6] as const
+
+/** Approver cell: initials avatar with name and email, or a generic person icon when unassigned. */
+function Approver({ name }: { name: string | null }) {
+  if (!name) {
+    return (
+      <span className="grid size-7 place-items-center rounded-full bg-vt-information text-vt-light-text" aria-label="No approver">
+        <User className="size-4" fill="currentColor" strokeWidth={0} />
+      </span>
+    )
+  }
+  const tone = AVATAR_TONES[[...name].reduce((sum, c) => sum + c.charCodeAt(0), 0) % AVATAR_TONES.length]
+  return (
+    <span className="flex items-center gap-2">
+      <Avatar name={name} size={28} tone={tone} />
+      <span className="flex flex-col">
+        <span className="text-sm leading-5">{name}</span>
+        <span className="text-xs leading-4 text-vt-grey-text">{emailFor(name)}</span>
+      </span>
+    </span>
+  )
+}
 
 function ViewPicker({
   view,
@@ -48,12 +114,11 @@ function ViewPicker({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-14 w-64 shrink-0 items-center justify-between gap-2 border-r border-vt-border px-4 text-left outline-none hover:bg-vt-background focus-visible:ring-2 focus-visible:ring-vt-focus-ring focus-visible:ring-inset"
+          aria-label={`Saved view: ${current.label}`}
+          className="flex h-8 w-48 shrink-0 items-center gap-2 rounded bg-[#efefef] px-2 text-left outline-none hover:bg-[#e5e5e5] focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
         >
-          <span className="min-w-0">
-            <span className="block truncate font-heading text-sm font-medium">{current.label}</span>
-            <span className="block text-xs font-light text-vt-grey-text">Saved view</span>
-          </span>
+          <ListFilter className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 truncate font-sans text-sm">{current.label}</span>
           <Icon name="chevron-down" size={14} />
         </button>
       </DropdownMenuTrigger>
@@ -115,7 +180,9 @@ export function RequestsQueue() {
   const [view, setView] = React.useState<ViewId>('all')
   const [query, setQuery] = React.useState('')
   const [page, setPage] = React.useState(1)
-  const [sort, setSort] = React.useState<{ key: SortKey; dir: Exclude<SortDirection, false> }>({ key: 'createdAt', dir: 'desc' })
+  const router = useRouter()
+  const [pageSize, setPageSize] = React.useState(20)
+  const [sort, setSort] = React.useState<SortState>({ key: 'createdAt', dir: 'desc' })
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [pending, setPending] = React.useState<PendingAction | null>(null)
   const [bannerOpen, setBannerOpen] = React.useState(true)
@@ -139,8 +206,18 @@ export function RequestsQueue() {
       .filter(match)
       .map((r) => byId.get(r.id) ?? r)
       .filter((r) => !term || r.id.toLowerCase().includes(term) || r.name.toLowerCase().includes(term))
-    const value = (r: DsarRequest) =>
-      sort.key === 'daysLeft' ? (daysLeft(r) ?? Number.POSITIVE_INFINITY) : sort.key === 'createdAt' ? r.createdAt : r[sort.key]
+    const value = (r: DsarRequest): number | string => {
+      switch (sort.key) {
+        case 'alerts':
+          return r.flag === 'confirmed' ? 2 : r.flag === 'suspected' ? 1 : 0
+        case 'daysLeft':
+          return daysLeft(r) ?? Number.POSITIVE_INFINITY
+        case 'subtasks':
+          return r.subtasksTotal ? r.subtasksDone / r.subtasksTotal : -1
+        default:
+          return r.createdAt
+      }
+    }
     return [...list].sort((a, b) => {
       const av = value(a)
       const bv = value(b)
@@ -149,7 +226,7 @@ export function RequestsQueue() {
     })
   }, [snapshot, byId, view, query, sort])
 
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize)
   const pageSelected = pageRows.filter((r) => selected.has(r.id)).length
   const headerState: boolean | 'indeterminate' =
     pageRows.length > 0 && pageSelected === pageRows.length ? true : pageSelected > 0 ? 'indeterminate' : false
@@ -188,10 +265,7 @@ export function RequestsQueue() {
 
   const selectCap = () => setSelected(new Set(rows.slice(0, MAX_SELECTION).map((r) => r.id)))
 
-  const sortProps = (key: SortKey) => ({
-    sorted: sort.key === key ? sort.dir : (false as const),
-    onSort: () => setSort((s) => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' })),
-  })
+  const sortBy = (key: SortKey) => setSort((s) => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' }))
 
   const selectedRequests = React.useMemo(
     () => [...selected].map((id) => byId.get(id)).filter((r): r is DsarRequest => Boolean(r)),
@@ -290,13 +364,19 @@ export function RequestsQueue() {
             selected.size > 0 && 'rounded-t-none',
           )}
         >
-          <div className="flex items-center border-b border-vt-border">
-            <ViewPicker view={view} onChange={changeView} counts={counts} />
-            <div className="px-4">
-              <div className="font-heading text-sm font-medium">{rows.length.toLocaleString()} Items</div>
-              <div className="text-xs font-light text-vt-grey-text">{query ? '1 Filters applied' : 'No filters applied'}</div>
+          <div className="flex items-start justify-between gap-4 px-4 pt-3">
+            <div className="flex flex-col items-start gap-1">
+              <ViewPicker view={view} onChange={changeView} counts={counts} />
+              <button
+                type="button"
+                onClick={() => pushToast({ tone: 'info', text: 'Filters are not wired up in this prototype.' })}
+                className="flex h-8 items-center gap-1.5 rounded px-2 text-sm font-medium text-vt-primary-1 outline-none hover:bg-vt-background focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+              >
+                <Plus className="size-4" aria-hidden />
+                Add filter
+              </button>
             </div>
-            <div className="ml-auto flex items-center gap-1 pr-3">
+            <div className="flex items-center gap-1">
               <SearchInput
                 value={query}
                 onChange={(e) => {
@@ -304,53 +384,99 @@ export function RequestsQueue() {
                   setPage(1)
                 }}
                 placeholder="Search"
-                className="w-60"
+                className="mr-2 w-52"
               />
               <Tooltip content="Columns">
-                <Button variant="outline" size="icon" aria-label="Columns">
+                <Button variant="ghost" size="icon" aria-label="Columns">
                   <Columns3 />
                 </Button>
               </Tooltip>
-              <Tooltip content="Refresh">
-                <Button variant="outline" size="icon" aria-label="Refresh" onClick={refresh}>
-                  <Icon name="refresh" />
+              <Tooltip content="Export">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Export"
+                  onClick={() => pushToast({ tone: 'info', text: 'Export is not wired up in this prototype.' })}
+                >
+                  <Download />
                 </Button>
               </Tooltip>
-              <Tooltip content="Filters">
-                <Button size="icon" aria-label="Filters">
-                  <Icon name="filter" variant="filled" />
+              <Tooltip content="Refresh">
+                <Button variant="ghost" size="icon" aria-label="Refresh" onClick={refresh}>
+                  <RotateCw />
                 </Button>
               </Tooltip>
             </div>
           </div>
 
-          <Table className="min-w-[1200px] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+          <Table className="mt-3 min-w-[1600px] font-sans font-normal [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_tbody_tr]:border-[#e5e5e5]">
             <TableHeader className="sticky top-0 z-10">
-              <TableRow className="h-10">
-                <TableHead className="h-10 w-10 pl-4">
+              <TableRow className="h-12">
+                <TableHead className="w-12 border-t-0 pl-4">
                   <Checkbox checked={headerState} onCheckedChange={togglePage} aria-label="Select all on this page" />
                 </TableHead>
-                <TableHead className="h-10" {...sortProps('id')}>ID</TableHead>
-                <TableHead className="h-10" {...sortProps('name')}>Name</TableHead>
-                <TableHead className="h-10">Stage</TableHead>
-                <TableHead className="h-10">Automation flag</TableHead>
-                <TableHead className="h-10">Workflow</TableHead>
-                <TableHead className="h-10">Request type</TableHead>
-                <TableHead className="h-10" {...sortProps('daysLeft')}>Days left</TableHead>
-                <TableHead className="h-10">Extended</TableHead>
-                <TableHead className="h-10" {...sortProps('createdAt')}>Date created</TableHead>
-                <TableHead className="h-10">Assignee</TableHead>
-                <TableHead className="h-10" align="center">Completed subtasks</TableHead>
+                <SortHead label="Alerts" sortKey="alerts" sort={sort} onSort={sortBy} className="w-24" />
+                <TableHead className="w-10 border-t-0">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+                <TableHead className="border-t-0">ID</TableHead>
+                <TableHead className="border-t-0">Name</TableHead>
+                <TableHead className="border-t-0">Organization</TableHead>
+                <TableHead className="border-t-0">Stage</TableHead>
+                <TableHead className="border-t-0">Request type</TableHead>
+                <SortHead label="Days left" sortKey="daysLeft" sort={sort} onSort={sortBy} />
+                <TableHead className="border-t-0">Extended</TableHead>
+                <SortHead label="Date created" sortKey="createdAt" sort={sort} onSort={sortBy} />
+                <TableHead className="border-t-0">Subject type</TableHead>
+                <SortHead label="Completed subtasks" sortKey="subtasks" sort={sort} onSort={sortBy} />
+                <TableHead className="border-t-0">Approver</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageRows.map((r) => {
                 const left = daysLeft(r)
                 const isSelected = selected.has(r.id)
+                const terminal = left === null
                 return (
-                  <TableRow key={r.id} data-state={isSelected ? 'selected' : undefined} className="h-10">
+                  <TableRow key={r.id} data-state={isSelected ? 'selected' : undefined} className="h-12">
                     <TableCell className="pl-4">
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(r.id)} aria-label={`Select ${r.id}`} />
+                    </TableCell>
+                    <TableCell>
+                      {r.flag ? (
+                        <Tooltip content={r.flag === 'confirmed' ? 'Confirmed automation' : 'Suspected automation'}>
+                          <span className="inline-flex px-3" aria-label={r.flag === 'confirmed' ? 'Confirmed automation' : 'Suspected automation'}>
+                            <Icon name="triangle-exclamation" variant="filled" size={20} className="text-vt-warning" />
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <Dashes count={4} />
+                      )}
+                    </TableCell>
+                    <TableCell className="px-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={`Actions for ${r.id}`}
+                            className="grid size-8 place-items-center rounded outline-none hover:bg-vt-background focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+                          >
+                            <Icon name="ellipsis" variant="filled" size={16} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <DropdownMenuItem onSelect={() => router.push(`/requests/${r.id}`)}>View details</DropdownMenuItem>
+                          <DropdownMenuItem disabled={terminal || r.extended} onSelect={() => launch({ action: 'extend', ids: [r.id], single: true })}>
+                            Extend
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={terminal} onSelect={() => launch({ action: 'reject', ids: [r.id], single: true })}>
+                            Reject
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={terminal} onSelect={() => launch({ action: 'close', ids: [r.id], single: true })}>
+                            Close
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell>
                       <Link
@@ -361,38 +487,58 @@ export function RequestsQueue() {
                         {r.id}
                       </Link>
                     </TableCell>
-                    <TableCell className={cn('font-light', r.unread && 'font-medium')}>{r.name}</TableCell>
+                    <TableCell className={cn(r.unread && 'font-medium')}>{r.name}</TableCell>
+                    <TableCell>{r.organization}</TableCell>
                     <TableCell>
                       <StageBadge stage={r.stage} />
                     </TableCell>
-                    <TableCell>
-                      <FlagBadge flag={r.flag} />
+                    <TableCell>{r.requestType || <Dashes />}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {left === null ? (
+                        <Dashes />
+                      ) : left < 0 ? (
+                        <span className="inline-flex items-center gap-2">
+                          {left}
+                          <span className="inline-flex h-6 items-center rounded-full border border-vt-error bg-vt-error-light px-2 text-xs leading-4">
+                            Overdue
+                          </span>
+                        </span>
+                      ) : (
+                        left
+                      )}
                     </TableCell>
-                    <TableCell className="max-w-48 truncate font-light">{r.workflow}</TableCell>
-                    <TableCell className="font-light">{r.requestType}</TableCell>
-                    <TableCell className={cn('font-light tabular-nums', left !== null && left < 0 && 'text-vt-error')}>
-                      {left === null ? '---' : left}
-                    </TableCell>
-                    <TableCell className="font-light">{r.extended ? 'Yes' : 'No'}</TableCell>
-                    <TableCell className="font-light whitespace-nowrap">{formatDate(r.createdAt)}</TableCell>
-                    <TableCell className="font-light">{r.assignee ?? <span className="text-vt-grey-text">Unassigned</span>}</TableCell>
-                    <TableCell align="center" className="font-light tabular-nums">
+                    <TableCell>{r.extended ? 'Yes' : 'No'}</TableCell>
+                    <TableCell className="tabular-nums">{formatTableDate(r.createdAt)}</TableCell>
+                    <TableCell>{r.subjectType}</TableCell>
+                    <TableCell className="tabular-nums">
                       {r.subtasksDone} / {r.subtasksTotal}
+                    </TableCell>
+                    <TableCell className="py-0">
+                      <Approver name={r.assignee} />
                     </TableCell>
                   </TableRow>
                 )
               })}
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-16 text-center text-sm font-light text-vt-grey-text">
+                  <td colSpan={14} className="py-16 text-center text-sm text-vt-grey-text">
                     No requests in this view
                   </td>
                 </tr>
               )}
             </TableBody>
           </Table>
-          <div className="border-t border-vt-border px-4 py-2">
-            <Pagination page={page} pageSize={PAGE_SIZE} total={rows.length} onPageChange={setPage} />
+          <div className="border-t border-vt-border">
+            <QueuePagination
+              page={page}
+              pageSize={pageSize}
+              total={rows.length}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
           </div>
         </section>
         </div>
