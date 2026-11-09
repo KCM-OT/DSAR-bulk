@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, Columns3, Download, ListFilter, Lock, MoveVertical, Plus, RotateCw, User } from 'lucide-react'
+import { ArrowDown, ArrowUp, Columns3, Download, ListFilter, Lock, MoveVertical, Plus, RotateCw, User, X } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -26,7 +26,7 @@ import { ActionLauncher, type PendingAction } from '@/components/bulk/action-lau
 import { daysLeft, emailFor, formatTableDate } from '@/lib/mock-data'
 import { MAX_SELECTION, useStore } from '@/lib/store'
 import type { DsarRequest, ViewId } from '@/lib/types'
-import { VIEWS } from '@/lib/views'
+import { FILTERS, matchesFilters, VIEWS, type FilterId } from '@/lib/views'
 import { cn } from '@/lib/utils'
 
 type SortKey = 'alerts' | 'createdAt' | 'daysLeft' | 'subtasks'
@@ -101,10 +101,12 @@ function ViewPicker({
   view,
   onChange,
   counts,
+  active,
 }: {
   view: ViewId
   onChange: (view: ViewId) => void
   counts: Record<ViewId, number>
+  active: boolean
 }) {
   const [query, setQuery] = React.useState('')
   const current = VIEWS.find((v) => v.id === view)!
@@ -115,11 +117,15 @@ function ViewPicker({
         <button
           type="button"
           aria-label={`Saved view: ${current.label}`}
-          className="flex h-8 w-48 shrink-0 items-center gap-2 rounded bg-[#efefef] px-2 text-left outline-none hover:bg-[#e5e5e5] focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+          className={cn(
+            'group flex h-8 w-[185px] shrink-0 items-center gap-1 rounded px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-vt-focus-ring',
+            // A view that applies filters is shown in the "active" green tint from the Figma table header.
+            active ? 'bg-[#edf3ee] hover:bg-[#e1ebe3]' : 'bg-[#efefef] hover:bg-[#e5e5e5]',
+          )}
         >
-          <ListFilter className="size-4 shrink-0" aria-hidden />
-          <span className="min-w-0 flex-1 truncate font-sans text-sm">{current.label}</span>
-          <Icon name="chevron-down" size={14} />
+          <ListFilter className="size-5 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span className="min-w-0 flex-1 truncate font-sans text-base leading-6 text-vt-dark-text">{current.label}</span>
+          <Icon name="chevron-down" size={16} className="transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">
@@ -178,6 +184,8 @@ function ViewPicker({
 export function RequestsQueue() {
   const { requests, byId, refreshToken, refresh, pushToast } = useStore()
   const [view, setView] = React.useState<ViewId>('all')
+  const [filters, setFilters] = React.useState<FilterId[]>([])
+  const [filtersHidden, setFiltersHidden] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [page, setPage] = React.useState(1)
   const router = useRouter()
@@ -200,10 +208,9 @@ export function RequestsQueue() {
   }, [snapshot])
 
   const rows = React.useMemo(() => {
-    const match = VIEWS.find((v) => v.id === view)!.match
     const term = query.trim().toLowerCase()
     const list = snapshot
-      .filter(match)
+      .filter((r) => matchesFilters(r, filters))
       .map((r) => byId.get(r.id) ?? r)
       .filter((r) => !term || r.id.toLowerCase().includes(term) || r.name.toLowerCase().includes(term))
     const value = (r: DsarRequest): number | string => {
@@ -224,7 +231,7 @@ export function RequestsQueue() {
       const cmp = av < bv ? -1 : av > bv ? 1 : 0
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [snapshot, byId, view, query, sort])
+  }, [snapshot, byId, filters, query, sort])
 
   const pageRows = rows.slice((page - 1) * pageSize, page * pageSize)
   const pageSelected = pageRows.filter((r) => selected.has(r.id)).length
@@ -233,6 +240,17 @@ export function RequestsQueue() {
 
   const changeView = (next: ViewId) => {
     setView(next)
+    setFilters(VIEWS.find((v) => v.id === next)!.filters)
+    setFiltersHidden(false)
+    setPage(1)
+    setSelected(new Set())
+  }
+
+  // Removing a tag widens the results; once nothing is left the table is back to All requests.
+  const removeFilter = (id: FilterId) => {
+    const next = filters.filter((f) => f !== id)
+    if (next.length === 0) return changeView('all')
+    setFilters(next)
     setPage(1)
     setSelected(new Set())
   }
@@ -364,52 +382,86 @@ export function RequestsQueue() {
             selected.size > 0 && 'rounded-t-none',
           )}
         >
-          <div className="flex items-start justify-between gap-4 px-4 pt-3">
-            <div className="flex flex-col items-start gap-1">
-              <ViewPicker view={view} onChange={changeView} counts={counts} />
+          {/* Table header from Figma "X / Table / Table header": saved view + actions, then filters. */}
+          <div className="flex flex-col gap-2 px-4 pt-3 pb-2">
+            <div className="flex items-center justify-between gap-4">
+              <ViewPicker view={view} onChange={changeView} counts={counts} active={filters.length > 0} />
+              <div className="flex flex-1 items-center justify-end gap-2">
+                <SearchInput
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value)
+                    setPage(1)
+                  }}
+                  placeholder="Search..."
+                  className="w-[270px]"
+                />
+                <Tooltip content="Columns">
+                  <Button variant="ghost" size="icon" aria-label="Columns">
+                    <Columns3 />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Refresh">
+                  <Button variant="ghost" size="icon" aria-label="Refresh" onClick={refresh}>
+                    <RotateCw />
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Export">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Export"
+                    onClick={() => pushToast({ tone: 'info', text: 'Export is not wired up in this prototype.' })}
+                  >
+                    <Download />
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => pushToast({ tone: 'info', text: 'Filters are not wired up in this prototype.' })}
-                className="flex h-8 items-center gap-1.5 rounded px-2 text-sm font-medium text-vt-primary-1 outline-none hover:bg-vt-background focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+                onClick={() => pushToast({ tone: 'info', text: 'Adding filters is not wired up in this prototype.' })}
+                className="flex h-8 items-center gap-1 rounded px-2 text-sm leading-5 font-semibold text-vt-primary-1 outline-none hover:bg-vt-background focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
               >
-                <Plus className="size-4" aria-hidden />
+                <Plus className="size-5" strokeWidth={1.75} aria-hidden />
                 Add filter
               </button>
-            </div>
-            <div className="flex items-center gap-1">
-              <SearchInput
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value)
-                  setPage(1)
-                }}
-                placeholder="Search"
-                className="mr-2 w-52"
-              />
-              <Tooltip content="Columns">
-                <Button variant="ghost" size="icon" aria-label="Columns">
-                  <Columns3 />
-                </Button>
-              </Tooltip>
-              <Tooltip content="Export">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Export"
-                  onClick={() => pushToast({ tone: 'info', text: 'Export is not wired up in this prototype.' })}
-                >
-                  <Download />
-                </Button>
-              </Tooltip>
-              <Tooltip content="Refresh">
-                <Button variant="ghost" size="icon" aria-label="Refresh" onClick={refresh}>
-                  <RotateCw />
-                </Button>
-              </Tooltip>
+              {filters.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" role="list" aria-label="Applied filters">
+                  {!filtersHidden &&
+                    filters.map((id) => (
+                      <span
+                        key={id}
+                        role="listitem"
+                        className="flex h-7 items-center rounded border border-vt-secondary-2 bg-vt-information-light"
+                      >
+                        <span className="px-2 py-0.5 text-sm leading-5 text-vt-dark-text">{FILTERS[id].label}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${FILTERS[id].label} filter`}
+                          onClick={() => removeFilter(id)}
+                          className="grid size-6 place-items-center rounded text-vt-dark-text outline-none hover:bg-vt-secondary-2 focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+                        >
+                          <X className="size-4" strokeWidth={1.75} />
+                        </button>
+                      </span>
+                    ))}
+                  <span className="flex h-4 items-center pl-2 text-xs leading-4 text-vt-link-text">
+                    <button type="button" onClick={() => setFiltersHidden((h) => !h)} className="hover:underline">
+                      {filtersHidden ? `Show (${filters.length})` : 'Hide'}
+                    </button>
+                    <span aria-hidden className="mx-2 h-3 w-px bg-vt-border" />
+                    <button type="button" onClick={() => changeView('all')} className="hover:underline">
+                      Clear all
+                    </button>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
-          <Table className="mt-3 min-w-[1600px] font-sans font-normal [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_tbody_tr]:border-[#e5e5e5]">
+          <Table className="min-w-[1600px] font-sans font-normal [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_tbody_tr]:border-[#e5e5e5]">
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="h-12">
                 <TableHead className="w-12 border-t-0 pl-4">
