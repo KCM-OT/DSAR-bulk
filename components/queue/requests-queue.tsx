@@ -29,7 +29,7 @@ import type { DsarRequest, ViewId } from '@/lib/types'
 import { FILTERS, matchesFilters, VIEWS, type FilterId } from '@/lib/views'
 import { cn } from '@/lib/utils'
 
-type SortKey = 'alerts' | 'createdAt' | 'daysLeft' | 'subtasks'
+type SortKey = 'createdAt' | 'daysLeft' | 'subtasks'
 type SortState = { key: SortKey; dir: Exclude<SortDirection, false> }
 
 /** Empty-cell placeholder used across the queue table ("- - - -"). */
@@ -215,8 +215,6 @@ export function RequestsQueue() {
       .filter((r) => !term || r.id.toLowerCase().includes(term) || r.name.toLowerCase().includes(term))
     const value = (r: DsarRequest): number | string => {
       switch (sort.key) {
-        case 'alerts':
-          return r.flag === 'confirmed' ? 2 : r.flag === 'suspected' ? 1 : 0
         case 'daysLeft':
           return daysLeft(r) ?? Number.POSITIVE_INFINITY
         case 'subtasks':
@@ -467,8 +465,7 @@ export function RequestsQueue() {
                 <TableHead className="w-12 border-t-0 pl-4">
                   <Checkbox checked={headerState} onCheckedChange={togglePage} aria-label="Select all on this page" />
                 </TableHead>
-                <SortHead label="Alerts" sortKey="alerts" sort={sort} onSort={sortBy} className="w-24" />
-                <TableHead className="w-10 border-t-0">
+                <TableHead className="w-12 border-t-0">
                   <span className="sr-only">Actions</span>
                 </TableHead>
                 <TableHead className="border-t-0">ID</TableHead>
@@ -476,6 +473,16 @@ export function RequestsQueue() {
                 <TableHead className="border-t-0">Organization</TableHead>
                 <TableHead className="border-t-0">Stage</TableHead>
                 <TableHead className="border-t-0">Request type</TableHead>
+                <TableHead className="border-t-0">
+                  <span className="inline-flex items-center gap-1.5">
+                    Automated submission
+                    <Tooltip content="Whether the request was flagged as submitted by an automated agent">
+                      <span className="inline-flex" aria-label="About automated submission">
+                        <Icon name="circle-info" variant="filled" size={14} className="text-vt-dark-text" />
+                      </span>
+                    </Tooltip>
+                  </span>
+                </TableHead>
                 <SortHead label="Days left" sortKey="daysLeft" sort={sort} onSort={sortBy} />
                 <TableHead className="border-t-0">Extended</TableHead>
                 <SortHead label="Date created" sortKey="createdAt" sort={sort} onSort={sortBy} />
@@ -494,18 +501,7 @@ export function RequestsQueue() {
                     <TableCell className="pl-4">
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(r.id)} aria-label={`Select ${r.id}`} />
                     </TableCell>
-                    <TableCell>
-                      {r.flag ? (
-                        <Tooltip content={r.flag === 'confirmed' ? 'Confirmed automation' : 'Suspected automation'}>
-                          <span className="inline-flex px-3" aria-label={r.flag === 'confirmed' ? 'Confirmed automation' : 'Suspected automation'}>
-                            <Icon name="triangle-exclamation" variant="filled" size={20} className="text-vt-warning" />
-                          </span>
-                        </Tooltip>
-                      ) : (
-                        <Dashes count={4} />
-                      )}
-                    </TableCell>
-                    <TableCell className="px-0">
+                    <TableCell className="px-0 text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -545,6 +541,9 @@ export function RequestsQueue() {
                       <StageBadge stage={r.stage} />
                     </TableCell>
                     <TableCell>{r.requestType || <Dashes />}</TableCell>
+                    <TableCell>
+                      {r.flag === 'confirmed' ? 'Confirmed' : r.flag === 'suspected' ? 'Suspected' : <Dashes />}
+                    </TableCell>
                     <TableCell className="tabular-nums">
                       {left === null ? (
                         <Dashes />
@@ -563,7 +562,7 @@ export function RequestsQueue() {
                     <TableCell className="tabular-nums">{formatTableDate(r.createdAt)}</TableCell>
                     <TableCell>{r.subjectType}</TableCell>
                     <TableCell className="tabular-nums">
-                      {r.subtasksDone} / {r.subtasksTotal}
+                      {r.subtasksDone}/{r.subtasksTotal}
                     </TableCell>
                     <TableCell className="py-0">
                       <Approver name={r.assignee} />
