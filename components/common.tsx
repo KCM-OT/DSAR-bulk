@@ -38,29 +38,39 @@ export function Tooltip({
   )
 }
 
-/** Outlined stage pills from the queue table design: tinted fill, coloured border, dark uppercase label. */
+/**
+ * Stage pills from the Figma table (DSAR 4548:7582): tinted fill, coloured border, medium uppercase label.
+ * Figma defines five: Unverified, Rejected-en-US-edited, In progress, Complete and Verify request.
+ * The remaining stages only appear after actions in the prototype and reuse the closest Figma style.
+ */
 const stageTone: Record<Stage, string> = {
-  New: 'border-vt-information bg-vt-information-light',
-  Unverified: 'border-vt-grey-text bg-vt-background',
-  'Verifying identity': 'border-vt-warning bg-vt-warning-light',
-  'In progress': 'border-vt-information bg-vt-information-light',
-  'Awaiting data': 'border-vt-graphic-2 bg-[#f2eef9]',
-  Complete: 'border-vt-success bg-vt-success-light',
-  Rejected: 'border-vt-error bg-vt-error-light',
-  Closed: 'border-vt-grey-text bg-vt-background',
-  Expired: 'border-vt-risk-high bg-vt-risk-high-light',
+  New: 'border-vt-link-text bg-vt-secondary-3',
+  Unverified: 'border-vt-risk-very-low bg-vt-risk-very-low-light',
+  'Verifying identity': 'border-vt-risk-medium bg-vt-risk-medium-light',
+  'In progress': 'border-vt-link-text bg-vt-secondary-3',
+  'Awaiting data': 'border-vt-link-text bg-vt-secondary-3',
+  Complete: 'border-vt-risk-low bg-vt-risk-low-light',
+  Rejected: 'border-vt-risk-very-high bg-vt-risk-very-high-light',
+  Closed: 'border-vt-risk-very-low bg-vt-risk-very-low-light',
+  Expired: 'border-vt-risk-very-high bg-vt-risk-very-high-light',
+}
+
+/** Display labels from the Figma badges; stages not in the design keep their own name. */
+export const STAGE_LABEL: Partial<Record<Stage, string>> = {
+  'Verifying identity': 'Verify request',
+  Rejected: 'Rejected-en-US-edited',
 }
 
 export function StageBadge({ stage, className }: { stage: Stage; className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center rounded-full border px-2 font-sans text-xs leading-4 font-normal whitespace-nowrap text-vt-dark-text uppercase',
+        'inline-flex h-6 items-center rounded-[20px] border px-2 font-sans text-xs leading-4 font-medium whitespace-nowrap text-vt-dark-text uppercase',
         stageTone[stage],
         className,
       )}
     >
-      {stage}
+      {STAGE_LABEL[stage] ?? stage}
     </span>
   )
 }

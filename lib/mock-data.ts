@@ -78,15 +78,12 @@ export function generateRequests(count = 640): DsarRequest[] {
       ['suspected', 16],
     ])
     const stage = weighted<Stage>(rand, [
-      ['New', 30],
-      ['Unverified', 9],
-      ['Verifying identity', 14],
-      ['In progress', 22],
-      ['Awaiting data', 8],
-      ['Complete', 7],
-      ['Rejected', 4],
-      ['Closed', 3],
-      ['Expired', 3],
+      // Only the five stages in the Figma table (DSAR 4548:7582) are seeded.
+      ['Unverified', 34],
+      ['Verifying identity', 16],
+      ['In progress', 30],
+      ['Complete', 12],
+      ['Rejected', 8],
     ])
     const first = pick(FIRST)
     const last = pick(LAST)
