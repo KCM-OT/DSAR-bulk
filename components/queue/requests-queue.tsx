@@ -194,6 +194,8 @@ export function RequestsQueue() {
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [pending, setPending] = React.useState<PendingAction | null>(null)
   const [bannerOpen, setBannerOpen] = React.useState(true)
+  // Standard requests have no automation flag, so the Automated submission column is hidden there.
+  const showAutomated = view !== 'standard'
 
   // View membership is evaluated against a snapshot taken at the last refresh (Story 1, AC 9).
   const [snapshot, setSnapshot] = React.useState(requests)
@@ -473,16 +475,18 @@ export function RequestsQueue() {
                 <TableHead className="border-t-0">Organization</TableHead>
                 <TableHead className="border-t-0">Stage</TableHead>
                 <TableHead className="border-t-0">Request type</TableHead>
-                <TableHead className="border-t-0">
-                  <span className="inline-flex items-center gap-1.5">
-                    Automated submission
-                    <Tooltip content="Whether the request was flagged as submitted by an automated agent">
-                      <span className="inline-flex" aria-label="About automated submission">
-                        <Icon name="circle-info" variant="filled" size={14} className="text-vt-dark-text" />
-                      </span>
-                    </Tooltip>
-                  </span>
-                </TableHead>
+                {showAutomated && (
+                  <TableHead className="border-t-0">
+                    <span className="inline-flex items-center gap-1.5">
+                      Automated submission
+                      <Tooltip content="Whether the request was flagged as submitted by an automated agent">
+                        <span className="inline-flex" aria-label="About automated submission">
+                          <Icon name="circle-info" variant="filled" size={14} className="text-vt-dark-text" />
+                        </span>
+                      </Tooltip>
+                    </span>
+                  </TableHead>
+                )}
                 <SortHead label="Days left" sortKey="daysLeft" sort={sort} onSort={sortBy} />
                 <TableHead className="border-t-0">Extended</TableHead>
                 <SortHead label="Date created" sortKey="createdAt" sort={sort} onSort={sortBy} />
@@ -541,9 +545,11 @@ export function RequestsQueue() {
                       <StageBadge stage={r.stage} />
                     </TableCell>
                     <TableCell>{r.requestType || <Dashes />}</TableCell>
-                    <TableCell>
-                      {r.flag === 'confirmed' ? 'Confirmed' : r.flag === 'suspected' ? 'Suspected' : <Dashes />}
-                    </TableCell>
+                    {showAutomated && (
+                      <TableCell>
+                        {r.flag === 'confirmed' ? 'Confirmed' : r.flag === 'suspected' ? 'Suspected' : <Dashes />}
+                      </TableCell>
+                    )}
                     <TableCell className="tabular-nums">
                       {left === null ? (
                         <Dashes />
@@ -572,7 +578,7 @@ export function RequestsQueue() {
               })}
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="py-16 text-center text-sm text-vt-grey-text">
+                  <td colSpan={showAutomated ? 14 : 13} className="py-16 text-center text-sm text-vt-grey-text">
                     No requests in this view
                   </td>
                 </tr>
