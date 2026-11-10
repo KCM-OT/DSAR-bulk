@@ -58,7 +58,4 @@ export type ViewId =
   | 'standard'
   | 'confirmed'
   | 'suspected'
-  | 'attention'
-  | 'my-group'
-  | 'mine'
-  | 'my-subtasks'
+  | 'export'

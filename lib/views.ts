@@ -32,34 +32,18 @@ export const matchesFilters = (r: DsarRequest, filters: FilterId[]) => filters.e
 export type SavedView = {
   id: ViewId
   label: string
-  description?: string
-  isNew?: boolean
   filters: FilterId[]
   match: (r: DsarRequest) => boolean
 }
 
 const view = (v: Omit<SavedView, 'match'>): SavedView => ({ ...v, match: (r) => matchesFilters(r, v.filters) })
 
-/** Seeded views. Order follows Story 1, AC 11; the pre-existing seeded views follow. */
+/** Saved views, in the order of the Figma saved-view menu (DSAR 4547:6479). */
 export const VIEWS: SavedView[] = [
   view({ id: 'all', label: 'All requests', filters: [] }),
-  view({ id: 'standard', label: 'Standard requests', description: 'Requests with no automation flag', isNew: true, filters: ['standard'] }),
-  view({
-    id: 'confirmed',
-    label: 'Confirmed automation',
-    description: 'Requests flagged as confirmed automation',
-    isNew: true,
-    filters: ['confirmed'],
-  }),
-  view({
-    id: 'suspected',
-    label: 'Suspected automation',
-    description: 'Requests flagged as suspected automation',
-    isNew: true,
-    filters: ['suspected'],
-  }),
-  view({ id: 'attention', label: 'Attention required', filters: ['overdue', 'open'] }),
-  view({ id: 'my-group', label: 'My group requests', filters: ['my-group'] }),
-  view({ id: 'mine', label: 'My requests', filters: ['mine'] }),
-  view({ id: 'my-subtasks', label: 'Requests with my subtasks', filters: ['mine', 'open-subtasks'] }),
+  view({ id: 'standard', label: 'Standard requests', filters: ['standard'] }),
+  view({ id: 'confirmed', label: 'Confirmed automated submissions', filters: ['confirmed'] }),
+  view({ id: 'suspected', label: 'Suspected automated submissions', filters: ['suspected'] }),
+  // A user-saved view in the design; it applies no filters in the prototype.
+  view({ id: 'export', label: 'Export', filters: [] }),
 ]

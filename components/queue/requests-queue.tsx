@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowDown, ArrowUp, Columns3, Download, ListFilter, Lock, MoveVertical, Plus, RotateCw, User, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Columns3, Download, ListFilter, MoveVertical, Plus, RotateCw, User, X } from 'lucide-react'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -100,12 +100,10 @@ function Approver({ name }: { name: string | null }) {
 function ViewPicker({
   view,
   onChange,
-  counts,
   active,
 }: {
   view: ViewId
   onChange: (view: ViewId) => void
-  counts: Record<ViewId, number>
   active: boolean
 }) {
   const [query, setQuery] = React.useState('')
@@ -128,16 +126,13 @@ function ViewPicker({
           <Icon name="chevron-down" size={16} className="transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-80">
-        <div className="flex justify-end gap-2 p-3">
-          <Button variant="secondary" size="sm" disabled>
-            Save
-          </Button>
-          <Button variant="secondary" size="sm">
-            Save As
-          </Button>
+      {/* Layout and content from the Figma saved-view menu (DSAR 4547:6479). */}
+      <DropdownMenuContent align="start" className="w-[317px] p-0">
+        <div className="flex justify-end gap-2 px-4 pt-4 pb-4">
+          <Button disabled>Save</Button>
+          <Button variant="secondary">Save As</Button>
         </div>
-        <div className="px-3 pb-2">
+        <div className="px-4 pb-4">
           <SearchInput
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -146,35 +141,25 @@ function ViewPicker({
             className="max-w-none"
           />
         </div>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="my-0" />
         <div className="max-h-96 overflow-auto py-1">
-          {filtered.map((v, i) => (
-            <React.Fragment key={v.id}>
-              {i === 4 && !query && <DropdownMenuSeparator />}
-              <DropdownMenuItem
-                onSelect={() => onChange(v.id)}
-                className={cn('text-sm leading-5', v.id === view && 'border-l-2 border-vt-information bg-vt-information-light')}
-                description={v.description}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="flex-1">{v.label}</span>
-                  {v.isNew && (
-                    <span className="rounded-full border border-vt-graphic-8 px-1.5 text-[10px] leading-4 text-vt-graphic-8">NEW</span>
-                  )}
-                  <span className="tabular-nums text-vt-grey-text">{counts[v.id].toLocaleString()}</span>
-                  <Tooltip content="Seeded view. It can't be renamed or deleted.">
-                    <Lock className="size-3 text-vt-grey-text" aria-label="Seeded view" />
-                  </Tooltip>
-                </span>
-              </DropdownMenuItem>
-            </React.Fragment>
+          {filtered.map((v) => (
+            <DropdownMenuItem
+              key={v.id}
+              onSelect={() => onChange(v.id)}
+              className={cn(
+                'mx-0.5 rounded-none px-2 py-2 font-sans text-base leading-6 font-light text-vt-dark-text',
+                v.id === view && 'bg-vt-information-light',
+              )}
+            >
+              {v.label}
+            </DropdownMenuItem>
           ))}
+          {filtered.length === 0 && <p className="px-3 py-2 text-sm text-vt-grey-text">No views found</p>}
         </div>
-        <DropdownMenuSeparator />
-        <div className="flex justify-center p-3">
-          <Button variant="secondary" size="sm">
-            Manage views
-          </Button>
+        <DropdownMenuSeparator className="my-0" />
+        <div className="flex justify-center p-4">
+          <Button variant="secondary">Manage views</Button>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -203,11 +188,6 @@ export function RequestsQueue() {
   requestsRef.current = requests
   React.useEffect(() => setSnapshot(requestsRef.current), [refreshToken])
 
-  const counts = React.useMemo(() => {
-    const out = {} as Record<ViewId, number>
-    for (const v of VIEWS) out[v.id] = snapshot.filter(v.match).length
-    return out
-  }, [snapshot])
 
   const rows = React.useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -385,7 +365,7 @@ export function RequestsQueue() {
           {/* Table header from Figma "X / Table / Table header": saved view + actions, then filters. */}
           <div className="flex flex-col gap-2 px-4 pt-3 pb-2">
             <div className="flex items-center justify-between gap-4">
-              <ViewPicker view={view} onChange={changeView} counts={counts} active={filters.length > 0} />
+              <ViewPicker view={view} onChange={changeView} active={filters.length > 0} />
               <div className="flex flex-1 items-center justify-end gap-2">
                 <SearchInput
                   value={query}
