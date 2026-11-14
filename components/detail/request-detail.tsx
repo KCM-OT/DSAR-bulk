@@ -20,7 +20,7 @@ import {
 import { ActionLauncher, type PendingAction } from '@/components/bulk/action-launcher'
 import { ActivityTab, HistoryTab, IdVerificationTab, SubtasksTab } from '@/components/detail/detail-tabs'
 import { StageBadge, Tooltip } from '@/components/common'
-import type { ActionId } from '@/lib/actions'
+import { flagMenuItem, type ActionId } from '@/lib/actions'
 import { CURRENT_USER, formatTableDate } from '@/lib/mock-data'
 import { MAX_SUBMISSION_SCORE, subjectDetails } from '@/lib/subject-details'
 import { useStore } from '@/lib/store'
@@ -182,28 +182,13 @@ export function RequestDetail({ id }: { id: string }) {
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => notWired('Delete')}>Delete</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Automation flag</DropdownMenuLabel>
-              {/* Only the action that matches the current flag state is offered (Stories 4 and 5, AC 2). */}
-              {r.flag === null && (
-                <>
-                  <DropdownMenuItem inGroup onSelect={() => launch('flag-confirmed')}>
-                    Flag as confirmed automation
-                  </DropdownMenuItem>
-                  <DropdownMenuItem inGroup onSelect={() => launch('flag-suspected')}>
-                    Flag as suspected automation
-                  </DropdownMenuItem>
-                </>
-              )}
-              {r.flag === 'confirmed' && (
-                <DropdownMenuItem inGroup onSelect={() => launch('remove-confirmed')}>
-                  Remove confirmed automation flag
+              <DropdownMenuLabel>Automated submission</DropdownMenuLabel>
+              {/* Same items as the bulk menu: Flag as / Change to / Remove, worded for this request's flag. */}
+              {(['confirmed', 'suspected'] as const).map((flag) => (
+                <DropdownMenuItem key={flag} inGroup onSelect={() => setPending({ action: 'set-flag', ids: [r.id], single: true, flag })}>
+                  {flagMenuItem(flag, [r]).label}
                 </DropdownMenuItem>
-              )}
-              {r.flag === 'suspected' && (
-                <DropdownMenuItem inGroup onSelect={() => launch('remove-suspected')}>
-                  Remove suspected automation flag
-                </DropdownMenuItem>
-              )}
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
