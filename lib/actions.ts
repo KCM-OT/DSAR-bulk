@@ -11,10 +11,6 @@ export type ActionId =
   | 'comment'
   | 'complete'
   | 'change-workflow'
-  | 'flag-confirmed'
-  | 'flag-suspected'
-  | 'remove-confirmed'
-  | 'remove-suspected'
   | 'move-to-standard'
   | 'set-flag'
 
@@ -97,10 +93,6 @@ export const ACTION_LABELS: Record<ActionId, string> = {
   comment: 'Add comment',
   complete: 'Complete',
   'change-workflow': 'Change workflow',
-  'flag-confirmed': 'Flag as confirmed automation',
-  'flag-suspected': 'Flag as suspected automation',
-  'remove-confirmed': 'Remove confirmed automation flag',
-  'remove-suspected': 'Remove suspected automation flag',
   'move-to-standard': 'Move to standard queue',
   'set-flag': 'Update automated submission flag',
 }
@@ -126,10 +118,6 @@ const PAST_TENSE: Record<ActionId, string> = {
   comment: 'updated with your comment',
   complete: 'completed',
   'change-workflow': 'moved to the new workflow',
-  'flag-confirmed': 'flagged as confirmed automation',
-  'flag-suspected': 'flagged as suspected automation',
-  'remove-confirmed': 'unflagged',
-  'remove-suspected': 'unflagged',
   'move-to-standard': 'moved to the standard queue',
   'set-flag': 'updated',
 }
@@ -195,10 +183,6 @@ const stageRule = (stages: Stage[], key = 'stage'): SkipRule => ({
   test: (r) => stages.includes(r.stage),
   text: (n) => `${reqs(n)} ${n === 1 ? "isn't" : "aren't"} eligible due to ${n === 1 ? "its" : "their"} current stage, hence skipped`,
 })
-
-function flagName(flag: 'confirmed' | 'suspected') {
-  return flag === 'confirmed' ? 'confirmed automation' : 'suspected automation'
-}
 
 export function computePlan(action: ActionId, params: ActionParams, selected: DsarRequest[]): Plan {
   let rules: SkipRule[] = []
@@ -288,45 +272,6 @@ export function computePlan(action: ActionId, params: ActionParams, selected: Ds
       ]
       outcome = (kept) => [ok(kept, `will move to ${params.workflow ?? '...'}`)]
       break
-    case 'flag-confirmed':
-    case 'flag-suspected': {
-      const flag = action === 'flag-confirmed' ? 'confirmed' : 'suspected'
-      const other = flag === 'confirmed' ? 'suspected' : 'confirmed'
-      rules = [
-        {
-          key: 'has-flag',
-          test: (r) => r.flag === flag,
-          text: (n) => `${reqs(n)} already ${hasHave(n)} the ${flagName(flag)} flag, hence skipped`,
-        },
-      ]
-      outcome = (kept) => {
-        const groups = workflowSplit(kept, params.workflow, `will be flagged as ${flagName(flag)}`)
-        const replacing = kept.filter((r) => r.flag === other).length
-        if (replacing > 0)
-          groups.push({
-            key: 'replace',
-            tone: 'info',
-            count: replacing,
-            text: `${reqs(replacing)} currently ${hasHave(replacing)} the ${flagName(other)} flag, which will be replaced`,
-            ids: kept.filter((r) => r.flag === other).map((r) => r.id),
-          })
-        return groups
-      }
-      break
-    }
-    case 'remove-confirmed':
-    case 'remove-suspected': {
-      const flag = action === 'remove-confirmed' ? 'confirmed' : 'suspected'
-      rules = [
-        {
-          key: 'no-flag',
-          test: (r) => r.flag !== flag,
-          text: (n) => `${reqs(n)} don't have the ${flagName(flag)} flag, hence skipped`,
-        },
-      ]
-      outcome = (kept) => workflowSplit(kept, params.workflow, `will have the ${flagName(flag)} flag removed and move to Standard requests`)
-      break
-    }
     case 'set-flag': {
       const fp = params.flagPlan ?? { none: 'keep', confirmed: 'keep', suspected: 'keep' }
       const target = (r: DsarRequest) => fp[flagState(r)]
@@ -522,7 +467,7 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
         `Workflow changed from ${r.workflow} to ${params.workflow}${params.deleteOpenSubtasks ? '; open subtasks deleted' : ''}`,
       )
     case 'move-to-standard': {
-      let next: DsarRequest = r.flag ? audit({ ...r, flag: null }, `${cap(flagName(r.flag))} flag removed; moved to Standard requests`) : r
+      let next: DsarRequest = r.flag ? audit({ ...r, flag: null }, `${cap(submissionName(r.flag))} flag removed; moved to Standard requests`) : r
       if (canChangeWorkflow(r, params.workflow)) {
         next = audit(
           changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),
@@ -538,23 +483,6 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
         to === 'none'
           ? audit({ ...r, flag: null }, `${cap(submissionName(r.flag!))} flag removed; moved to Standard requests`)
           : audit({ ...r, flag: to }, r.flag ? `Changed from ${submissionName(r.flag)} to ${submissionName(to)}` : `Flagged as ${submissionName(to)}`)
-      if (canChangeWorkflow(r, params.workflow)) {
-        next = audit(
-          changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),
-          `Workflow changed from ${r.workflow} to ${params.workflow}${params.deleteOpenSubtasks ? '; open subtasks deleted' : ''}`,
-        )
-      }
-      return next
-    }
-    case 'flag-confirmed':
-    case 'flag-suspected':
-    case 'remove-confirmed':
-    case 'remove-suspected': {
-      const adding = action.startsWith('flag')
-      const flag = action.endsWith('confirmed') ? 'confirmed' : 'suspected'
-      let next: DsarRequest = adding
-        ? audit({ ...r, flag }, r.flag ? `${cap(flagName(r.flag))} flag replaced with ${flagName(flag)} flag` : `Flagged as ${flagName(flag)}`)
-        : audit({ ...r, flag: null }, `${cap(flagName(flag))} flag removed`)
       if (canChangeWorkflow(r, params.workflow)) {
         next = audit(
           changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),

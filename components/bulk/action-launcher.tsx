@@ -161,8 +161,6 @@ function StandardActionModal({
   const plan = React.useMemo(() => computePlan(action, params, selected), [action, params, selected])
 
   const needsInput = (action === 'assign' && !params.assignee) || (action === 'change-workflow' && !params.workflow)
-  const isFlag = action.startsWith('flag') || action.startsWith('remove') || action === 'move-to-standard'
-  const flagName = action.endsWith('confirmed') ? 'Confirmed automation' : 'Suspected automation'
 
   const title = pending.single ? ACTION_LABELS[action] : `${ACTION_LABELS[action]}: ${n(selected.length)} selected`
 
@@ -244,14 +242,11 @@ function StandardActionModal({
 
         {action === 'change-workflow' && <WorkflowFields params={params} setParams={setParams} selected={selected} optional={false} />}
 
-        {isFlag && (
+        {action === 'move-to-standard' && (
           <>
             <Note>
-              {action === 'move-to-standard'
-                ? "The confirmed or suspected automation flag is removed, and requests move to Standard requests the next time the list refreshes. Stage, assignee, submitter data and due date don't change."
-                : action.startsWith('flag')
-                ? `Flagged requests move to the ${flagName} view the next time the list refreshes. Stage, assignee, submitter data and due date don't change.`
-                : `Requests move from the ${flagName} view to Standard requests the next time the list refreshes. Stage, assignee, submitter data and due date don't change.`}
+              The confirmed or suspected automated submission flag is removed, and requests move to Standard requests the next time the list
+              refreshes. Stage, assignee, submitter data and due date don&apos;t change.
             </Note>
             <WorkflowFields params={params} setParams={setParams} selected={selected} optional />
           </>
