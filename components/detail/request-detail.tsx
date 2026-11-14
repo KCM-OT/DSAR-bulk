@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Info, Pencil } from 'lucide-react'
 
 import { Breadcrumb } from '@/components/ui/breadcrumb'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -20,11 +19,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ActionLauncher, type PendingAction } from '@/components/bulk/action-launcher'
 import { ActivityTab, HistoryTab, IdVerificationTab, SubtasksTab } from '@/components/detail/detail-tabs'
-import { FlagBadge, StageBadge } from '@/components/common'
+import { StageBadge, Tooltip } from '@/components/common'
 import type { ActionId } from '@/lib/actions'
-import { CURRENT_USER, formatDate } from '@/lib/mock-data'
+import { CURRENT_USER, formatTableDate } from '@/lib/mock-data'
+import { MAX_SUBMISSION_SCORE, subjectDetails } from '@/lib/subject-details'
 import { useStore } from '@/lib/store'
-import type { DsarRequest, Stage } from '@/lib/types'
+import type { Stage } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 /** Workflow path shown on the request, as in the QA detail page. */
 const PATH_STEPS = ['NEW', 'VERIFYING IDENTITY', 'IN PROGRESS', 'COMPLETE']
@@ -45,62 +46,45 @@ function pathIndex(stage: Stage) {
   }
 }
 
-const STAGE_GUIDANCE: Partial<Record<Stage, string>> = {
-  New: "Review the request and confirm it's complete. Assign it to a team member, then advance it when you're ready to verify the requester's identity.",
-  Unverified:
-    "The requester hasn't confirmed their email address yet. The request moves forward automatically once they do, or you can advance it manually.",
-  'Verifying identity':
-    "You should make sure the person making this request is the individual to whom the personal data actually relates. If you have reasonable doubts concerning the identity of the person making this request, you may request additional information from the person in order to verify his/her identity. You can do so by using the chat box under the 'Public' tab below and upload any associated attachment by clicking the icon under the chat box. Before moving to the next step, we suggest you include a brief comment under the 'Internal' tab to document the reasons that allowed you to complete this step.",
-  'In progress':
-    "Gather the requested personal data from your systems and complete the subtasks below. Use the 'Public' tab to update the data subject and the 'Internal' tab to document your work.",
-  'Awaiting data':
-    'Waiting on data from connected systems or subtask owners. Check the Subtasks tab for anything still open.',
-  Complete: 'This request is complete. Any response sent to the data subject appears in the activity below.',
-  Rejected: 'This request was rejected. No further action is needed.',
-  Closed: 'This request was closed. No further action is needed.',
-  Expired: 'This request expired before it was completed.',
-}
-
-function SideField({ label, children, editable, info }: { label: string; children: React.ReactNode; editable?: boolean; info?: boolean }) {
+/** Left-column field, per Figma DSAR 4633:21868: 14/20 label over a light 14/20 value, divider below. */
+function SideField({ label, children, info }: { label: string; children: React.ReactNode; info?: string }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-vt-border py-3">
-      <dt className="flex items-center gap-1 font-heading text-xs font-medium">
+    <div className="flex min-h-[69px] flex-col gap-[11px] border-b border-vt-border pt-[9px] pb-2 text-sm leading-5">
+      <dt className="flex items-center gap-0.5 font-normal whitespace-nowrap">
         {label}
-        {info && <Info className="size-3" aria-hidden />}
-      </dt>
-      <dd className="flex items-center gap-2 text-xs font-light">
-        {children}
-        {editable && (
-          <button type="button" aria-label={`Edit ${label.toLowerCase()}`} className="text-vt-dark-text hover:text-vt-information">
-            <Pencil className="size-3.5" />
-          </button>
+        {info && (
+          <Tooltip content={info}>
+            <button type="button" aria-label={`About ${label.replace(/:$/, '').toLowerCase()}`} className="inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-vt-focus-ring">
+              <Icon name="circle-info" size={16} />
+            </button>
+          </Tooltip>
         )}
-      </dd>
-    </div>
-  )
-}
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[1fr_2fr] gap-4 py-2 text-sm">
-      <dt className="font-heading font-medium">{label}</dt>
+      </dt>
       <dd className="font-light">{children}</dd>
     </div>
   )
 }
 
-const DASHES = <span className="text-vt-grey-text">- - - -</span>
-
-function countryFor(r: DsarRequest) {
-  const countries = ['United States', 'United States', 'United Kingdom', 'Germany', 'France', 'Canada']
-  return countries[r.id.charCodeAt(0) % countries.length]
+/** Main-column detail row: a 190px bold label, 110px gap, light value, 40px tall. */
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-10 items-center gap-[110px] text-base leading-6">
+      <dt className="w-[190px] shrink-0 font-medium">{label}</dt>
+      <dd className="min-w-0 font-light">{children}</dd>
+    </div>
+  )
 }
+
+const DASHES = '----'
+
+const FLAG_LABEL = { confirmed: 'Confirmed', suspected: 'Suspected' } as const
 
 export function RequestDetail({ id }: { id: string }) {
   const { byId, updateRequests, pushToast } = useStore()
   const router = useRouter()
   const request = byId.get(id)
-  const [showMore, setShowMore] = React.useState(false)
+  // The address block starts open; "show less" collapses it to its divider line.
+  const [addressOpen, setAddressOpen] = React.useState(true)
   const [tab, setTab] = React.useState('activity')
   const [pending, setPending] = React.useState<PendingAction | null>(null)
 
@@ -125,6 +109,7 @@ export function RequestDetail({ id }: { id: string }) {
   }
 
   const r = request
+  const d = subjectDetails(r)
   const terminal = ['Complete', 'Rejected', 'Closed', 'Expired'].includes(r.stage)
   const index = pathIndex(r.stage)
   const notWired = (label: string) => pushToast({ tone: 'info', text: `${label} is not wired up in this prototype.` })
@@ -149,17 +134,16 @@ export function RequestDetail({ id }: { id: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-start justify-between gap-4 border-b border-vt-border bg-vt-surface px-6 pt-2 pb-3">
+      <header className="flex items-start justify-between gap-8 border-b border-[#a9a9a9] bg-vt-surface p-6">
         <div className="min-w-0">
           <Breadcrumb items={[{ label: 'Requests', href: '/', onClick: () => router.push('/') }, { label: r.id }]} className="[&_a]:text-vt-information" />
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-heading text-2xl leading-8 font-medium tracking-[-0.03em]">Data subject request details</h1>
+          <div className="flex flex-wrap items-center gap-2 py-2">
+            <h1 className="font-heading text-2xl leading-8 font-semibold">Requests</h1>
             <StageBadge stage={r.stage} />
-            {r.flag && <FlagBadge flag={r.flag} />}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 pt-4">
-          <Button variant="secondary" onClick={() => notWired('Results summary')}>
+        <div className="flex shrink-0 items-center gap-2 self-stretch">
+          <Button variant="secondary" disabled>
             Results summary
           </Button>
           <DropdownMenu>
@@ -167,7 +151,7 @@ export function RequestDetail({ id }: { id: string }) {
               <button
                 type="button"
                 aria-label="More actions"
-                className={buttonVariants({ variant: 'outline', size: 'icon', className: 'border-vt-control-border' })}
+                className={buttonVariants({ variant: 'outline', size: 'icon' })}
               >
                 <Icon name="ellipsis" size={24} />
               </button>
@@ -227,88 +211,71 @@ export function RequestDetail({ id }: { id: string }) {
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Left details column */}
-        <aside className="w-[200px] shrink-0 overflow-y-auto border-r border-vt-border bg-vt-surface px-3">
+        <aside className="w-[188px] shrink-0 overflow-y-auto [scrollbar-width:none] bg-vt-surface px-[9px] text-vt-dark-text">
           <dl>
-            <SideField label="Preferred language:" editable>
-              English
-            </SideField>
+            <SideField label="Hours worked:">{d.hoursWorked}</SideField>
+            <SideField label="Total cost:">{d.totalCost}</SideField>
+            <SideField label="Preferred language:">{d.language}</SideField>
             <SideField label="Workflow:">{r.workflow}</SideField>
-            <SideField label="Approver:" editable>
-              {DASHES}
-            </SideField>
-            <SideField label="Assignee:" editable>
-              {r.assignee ?? DASHES}
-            </SideField>
-            <SideField label="Managing organization:" editable>
-              {r.organization}
-            </SideField>
-            <SideField label="Date opened:">{formatDate(r.createdAt)}</SideField>
+            <SideField label="Approver:">{r.assignee ?? DASHES}</SideField>
+            <SideField label="Managing organization:">{r.organization}</SideField>
+            <SideField label="Date opened:">{formatTableDate(r.createdAt)}</SideField>
             <SideField label="Extended:">{r.extended ? 'Yes' : 'No'}</SideField>
-            <SideField label="Deadline:">{terminal ? DASHES : formatDate(r.deadline)}</SideField>
-            <SideField label="Resolution:">{r.resolution ?? '---'}</SideField>
-            <SideField label="Web Form (Version):">{r.flag ? 'Authorized Agent Form (V1)' : 'Global Web Form (V2)'}</SideField>
-            <SideField label="Last portal access" info>
+            <SideField label="Deadline:">{terminal ? DASHES : formatTableDate(r.deadline)}</SideField>
+            <SideField label="Resolution:">{r.resolution ?? DASHES}</SideField>
+            <SideField label="Web form (version):">{d.webForm}</SideField>
+            <SideField label="Last portal access:" info="When the data subject last signed in to the privacy portal.">
               {DASHES}
+            </SideField>
+            <SideField label="Automated submission" info="Indicates if the request was submitted through an automated process.">
+              {r.flag ? FLAG_LABEL[r.flag] : DASHES}
+            </SideField>
+            <SideField label="Submission Score" info="How likely the request is to come from an automated process, scored when it was submitted.">
+              {d.submissionScore} out of {MAX_SUBMISSION_SCORE}
             </SideField>
           </dl>
         </aside>
 
         {/* Main column */}
-        <main className="min-w-0 flex-1 overflow-y-auto bg-vt-surface">
-          <section className="border-b border-vt-border px-3 py-4">
-            <h2 className="font-heading text-lg font-medium">{r.name}</h2>
-            <dl className="mt-2 max-w-3xl">
-              <InfoRow label="Request ID:">{r.id}</InfoRow>
-              <InfoRow label="Request type:">{r.requestType}</InfoRow>
-              <InfoRow label="Subject type:">{r.subjectType}</InfoRow>
-              <InfoRow label="Email:">{r.email}</InfoRow>
-              <InfoRow label="Country:">{countryFor(r)}</InfoRow>
-            </dl>
-            <div className="mt-2 flex justify-end border-t border-vt-border pt-3">
-              <button
-                type="button"
-                aria-expanded={showMore}
-                onClick={() => setShowMore((s) => !s)}
-                className="inline-flex items-center gap-1 font-heading text-sm font-medium hover:text-vt-information"
-              >
-                {showMore ? 'Show less' : 'Show more'}
-                <Icon name={showMore ? 'caret-down' : 'caret-up'} variant="filled" size={12} className={showMore ? '' : 'rotate-90'} />
-              </button>
-            </div>
-            {showMore && (
-              <dl className="mt-2 max-w-3xl">
-                <InfoRow label="State:">{countryFor(r) === 'United States' ? 'California' : '---'}</InfoRow>
-                <InfoRow label="Which would you like to receive?:">
-                  {r.requestType === 'Deletion' ? 'Delete the personal information you hold about me' : 'The categories of personal information that we collected about you'}
-                </InfoRow>
-                <InfoRow label="Submitted by:">{r.submittedBy}</InfoRow>
-                <InfoRow label="Automation flag:">
-                  <FlagBadge flag={r.flag} />
-                </InfoRow>
-              </dl>
-            )}
-          </section>
+        <main className="min-w-0 flex-1 overflow-y-auto border-l border-vt-border bg-vt-surface text-vt-dark-text">
+          <dl className="pt-4 pb-10 pl-6">
+            <InfoRow label="Request type:">{r.requestType}</InfoRow>
+            <InfoRow label="Subject type:">{r.subjectType}</InfoRow>
+            <InfoRow label="Email:">{r.email}</InfoRow>
+            <InfoRow label="Country:">{d.country}</InfoRow>
+          </dl>
 
-          <section className="flex items-center gap-4 border-b border-vt-border px-3">
-            <Path steps={PATH_STEPS} current={index} className="flex-1 py-6" />
+          <div className={cn('relative border-t border-vt-border pl-6', addressOpen ? 'pt-4 pb-10' : 'pb-3')}>
             <button
               type="button"
-              onClick={advance}
-              disabled={terminal}
-              className="shrink-0 rounded px-3 py-1 font-heading text-base font-medium text-vt-primary-1 outline-none hover:bg-vt-success-light focus-visible:ring-2 focus-visible:ring-vt-focus-ring disabled:text-vt-empty"
+              aria-expanded={addressOpen}
+              aria-controls="subject-address"
+              onClick={() => setAddressOpen((o) => !o)}
+              className="absolute top-0 right-0 inline-flex -translate-y-1/2 items-center bg-vt-surface px-2 text-base leading-6 font-light outline-none hover:text-vt-information focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
             >
-              Advance
+              {addressOpen ? 'show less' : 'show more'}
+              <Icon name="caret-down" variant="filled" size={24} className={addressOpen ? '' : '-rotate-90'} />
             </button>
+            <dl id="subject-address" hidden={!addressOpen}>
+              <InfoRow label="Address:">{d.address}</InfoRow>
+              <InfoRow label="City:">{d.city}</InfoRow>
+              <InfoRow label="Zip:">{d.zip}</InfoRow>
+            </dl>
+          </div>
+
+          <section className="flex justify-center border-y border-vt-border py-[47px]">
+            <div className="flex w-full max-w-[818px] items-center gap-2 px-4">
+              <Path steps={PATH_STEPS} current={index} className="flex-1 py-0 [&_button]:text-sm [&_button]:leading-5 [&_li]:flex-auto [&>div]:px-0"
+              />
+              <Button variant="ghost" onClick={advance} disabled={terminal} className="shrink-0">
+                Advance
+              </Button>
+            </div>
           </section>
 
-          <section className="px-3 py-4">
-            <h2 className="font-heading text-xl font-medium uppercase">{r.stage}</h2>
-            <p className="mt-1 max-w-4xl text-sm font-light">{STAGE_GUIDANCE[r.stage]}</p>
-          </section>
-
-          <Tabs value={tab} onValueChange={setTab} className="gap-0">
+          <Tabs value={tab} onValueChange={setTab} className="gap-0 pt-[60px]">
             <TabsList className="justify-center">
-              <TabsTrigger value="id-verification">ID verification</TabsTrigger>
+              <TabsTrigger value="id-verification">Id verification</TabsTrigger>
               <TabsTrigger value="subtasks">Subtasks</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
