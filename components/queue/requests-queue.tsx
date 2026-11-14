@@ -527,7 +527,7 @@ export function RequestsQueue() {
                     <TableCell>{r.requestType || <Dashes />}</TableCell>
                     {showAutomated && (
                       <TableCell>
-                        {r.flag === 'confirmed' ? 'Confirmed' : r.flag === 'suspected' ? 'Suspected' : 'n/a'}
+                        {r.flag === 'confirmed' ? 'Confirmed' : r.flag === 'suspected' ? 'Suspected' : <Dashes />}
                       </TableCell>
                     )}
                     <TableCell className="tabular-nums">
