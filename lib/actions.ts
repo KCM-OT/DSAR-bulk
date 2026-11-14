@@ -16,6 +16,56 @@ export type ActionId =
   | 'remove-confirmed'
   | 'remove-suspected'
   | 'move-to-standard'
+  | 'set-flag'
+
+export type Flag = 'confirmed' | 'suspected'
+/** A request's automated-submission state: its flag, or 'none' for a standard request. */
+export type FlagState = 'none' | Flag
+/** What happens to requests in one flag state: keep as is, or set to a state ('none' removes the flag). */
+export type FlagTarget = 'keep' | FlagState
+export type FlagPlan = Record<FlagState, FlagTarget>
+
+export const flagState = (r: DsarRequest): FlagState => r.flag ?? 'none'
+export const submissionName = (flag: Flag) => `${flag} automated submission`
+
+export function flagCounts(selected: DsarRequest[]): Record<FlagState, number> {
+  const counts = { none: 0, confirmed: 0, suspected: 0 }
+  for (const r of selected) counts[flagState(r)]++
+  return counts
+}
+
+/**
+ * The bulk menu's flag item for one flag, labelled for the current selection:
+ * all already flagged -> remove; all carry the other flag -> change; all standard -> flag;
+ * any mix -> flag, with a trailing ellipsis because the modal asks how to treat each group.
+ */
+export function flagMenuItem(flag: Flag, selected: DsarRequest[]) {
+  const counts = flagCounts(selected)
+  const other: Flag = flag === 'confirmed' ? 'suspected' : 'confirmed'
+  const total = selected.length
+  const name = submissionName(flag)
+  let label: string
+  let plan: FlagPlan
+  let mixed = false
+  if (counts[flag] === total) {
+    label = `Remove ${name} flag`
+    plan = { none: 'keep', confirmed: 'keep', suspected: 'keep', [flag]: 'none' }
+  } else if (counts[other] === total) {
+    label = `Change to ${name}`
+    plan = { none: 'keep', confirmed: flag, suspected: flag }
+  } else if (counts.none === total) {
+    label = `Flag as ${name}`
+    plan = { none: flag, confirmed: 'keep', suspected: 'keep' }
+  } else {
+    mixed = true
+    label = `Flag as ${name}…`
+    plan = { none: flag, [other]: flag, [flag]: 'keep' } as FlagPlan
+  }
+  const parts = (['confirmed', 'suspected', 'none'] as FlagState[])
+    .filter((s) => counts[s] > 0)
+    .map((s) => `${counts[s]} ${s === 'none' ? 'standard' : s}`)
+  return { label, plan, mixed, description: mixed ? `Mixed selection: ${parts.join(', ')}` : undefined }
+}
 
 export type ReplyAs = null | 'completed' | 'rejected' | 'extended'
 
@@ -33,6 +83,8 @@ export type ActionParams = {
   single?: boolean
   /** Comment launched as "Bulk public comment": no internal tab. */
   publicOnly?: boolean
+  /** For set-flag: the target flag state for each current flag state. */
+  flagPlan?: FlagPlan
 }
 
 export const ACTION_LABELS: Record<ActionId, string> = {
@@ -50,6 +102,7 @@ export const ACTION_LABELS: Record<ActionId, string> = {
   'remove-confirmed': 'Remove confirmed automation flag',
   'remove-suspected': 'Remove suspected automation flag',
   'move-to-standard': 'Move to standard queue',
+  'set-flag': 'Update automated submission flag',
 }
 
 export function jobLabel(action: ActionId, params: ActionParams) {
@@ -78,6 +131,7 @@ const PAST_TENSE: Record<ActionId, string> = {
   'remove-confirmed': 'unflagged',
   'remove-suspected': 'unflagged',
   'move-to-standard': 'moved to the standard queue',
+  'set-flag': 'updated',
 }
 
 /** Toast copy for a completed bulk action, e.g. "2 request(s) successfully rejected." */
@@ -273,6 +327,48 @@ export function computePlan(action: ActionId, params: ActionParams, selected: Ds
       outcome = (kept) => workflowSplit(kept, params.workflow, `will have the ${flagName(flag)} flag removed and move to Standard requests`)
       break
     }
+    case 'set-flag': {
+      const fp = params.flagPlan ?? { none: 'keep', confirmed: 'keep', suspected: 'keep' }
+      const target = (r: DsarRequest) => fp[flagState(r)]
+      rules = [
+        {
+          key: 'unchanged',
+          test: (r) => target(r) === 'keep' || target(r) === flagState(r),
+          text: (n) => `${reqs(n)} will keep ${n === 1 ? 'its' : 'their'} current flag, hence skipped`,
+        },
+      ]
+      outcome = (kept) => {
+        const groups: PlanGroup[] = []
+        for (const from of ['none', 'confirmed', 'suspected'] as FlagState[]) {
+          const ids = kept.filter((r) => flagState(r) === from).map((r) => r.id)
+          if (!ids.length) continue
+          const to = fp[from] as FlagState
+          const text =
+            to === 'none'
+              ? `will have the ${submissionName(from as Flag)} flag removed and move to Standard requests`
+              : from === 'none'
+                ? `will be flagged as ${submissionName(to)}`
+                : `will change from ${from} to ${submissionName(to)}`
+          groups.push({ key: `${from}-${to}`, tone: 'success', count: ids.length, text: `${reqs(ids.length)} ${text}`, ids })
+        }
+        if (params.workflow) {
+          const moving = kept.filter((r) => canChangeWorkflow(r, params.workflow))
+          const staying = kept.length - moving.length
+          if (moving.length)
+            groups.push({ key: 'wf', tone: 'success', count: moving.length, text: `${reqs(moving.length)} will also move to ${params.workflow}`, ids: moving.map((r) => r.id) })
+          if (staying)
+            groups.push({
+              key: 'wf-keep',
+              tone: 'info',
+              count: staying,
+              text: `${reqs(staying)} will keep their current workflow (already in ${params.workflow}, or in a stage where the workflow can't change)`,
+              ids: kept.filter((r) => !canChangeWorkflow(r, params.workflow)).map((r) => r.id),
+            })
+        }
+        return groups
+      }
+      break
+    }
     case 'move-to-standard':
       rules = [
         {
@@ -427,6 +523,21 @@ function applyActionInner(r: DsarRequest, action: ActionId, params: ActionParams
       )
     case 'move-to-standard': {
       let next: DsarRequest = r.flag ? audit({ ...r, flag: null }, `${cap(flagName(r.flag))} flag removed; moved to Standard requests`) : r
+      if (canChangeWorkflow(r, params.workflow)) {
+        next = audit(
+          changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),
+          `Workflow changed from ${r.workflow} to ${params.workflow}${params.deleteOpenSubtasks ? '; open subtasks deleted' : ''}`,
+        )
+      }
+      return next
+    }
+    case 'set-flag': {
+      const to = params.flagPlan?.[flagState(r)] ?? 'keep'
+      if (to === 'keep' || to === flagState(r)) return r
+      let next: DsarRequest =
+        to === 'none'
+          ? audit({ ...r, flag: null }, `${cap(submissionName(r.flag!))} flag removed; moved to Standard requests`)
+          : audit({ ...r, flag: to }, r.flag ? `Changed from ${submissionName(r.flag)} to ${submissionName(to)}` : `Flagged as ${submissionName(to)}`)
       if (canChangeWorkflow(r, params.workflow)) {
         next = audit(
           changeWorkflow(next, params.workflow!, Boolean(params.deleteOpenSubtasks)),

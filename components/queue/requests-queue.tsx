@@ -345,13 +345,13 @@ export function RequestsQueue() {
               totalInView={rows.length}
               onSelectCap={selectCap}
               onClear={() => setSelected(new Set())}
-              onAction={(action) =>
+              onAction={(action, flag) =>
                 launch(
                   action === 'public-comment'
                     ? { action: 'comment', ids: [...selected], commentMode: 'public' }
                     : action === 'internal-comment'
                       ? { action: 'comment', ids: [...selected], commentMode: 'internal' }
-                      : { action, ids: [...selected] },
+                      : { action, ids: [...selected], flag },
                 )
               }
             />

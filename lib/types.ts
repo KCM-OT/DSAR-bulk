@@ -58,4 +58,3 @@ export type ViewId =
   | 'standard'
   | 'confirmed'
   | 'suspected'
-  | 'export'

@@ -44,6 +44,4 @@ export const VIEWS: SavedView[] = [
   view({ id: 'standard', label: 'Standard requests', filters: ['standard'] }),
   view({ id: 'confirmed', label: 'Confirmed automated submissions', filters: ['confirmed'] }),
   view({ id: 'suspected', label: 'Suspected automated submissions', filters: ['suspected'] }),
-  // A user-saved view in the design; it applies no filters in the prototype.
-  view({ id: 'export', label: 'Export', filters: [] }),
 ]

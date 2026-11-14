@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip } from '@/components/common'
-import { computePlan, type ActionId } from '@/lib/actions'
+import { computePlan, flagMenuItem, type ActionId, type Flag } from '@/lib/actions'
 import { MAX_SELECTION } from '@/lib/store'
 import type { DsarRequest } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -36,14 +36,14 @@ export function BulkBar({
   totalInView: number
   onSelectCap: () => void
   onClear: () => void
-  onAction: (action: BulkMenuAction) => void
+  onAction: (action: BulkMenuAction, flag?: Flag) => void
 }) {
   const cap = Math.min(totalInView, MAX_SELECTION)
   const showSelectAll = selected.length < cap
   const overCap = totalInView > MAX_SELECTION
   const allStandard = selected.every((r) => r.flag === null)
   const canComplete = React.useMemo(() => computePlan('complete', {}, selected).processIds.length > 0, [selected])
-  const anyWithout = (flag: 'confirmed' | 'suspected') => selected.some((r) => r.flag !== flag)
+  const flagItems = React.useMemo(() => (['confirmed', 'suspected'] as const).map((flag) => ({ flag, ...flagMenuItem(flag, selected) })), [selected])
 
   const selectLink = (
     <button
@@ -98,7 +98,7 @@ export function BulkBar({
               <Icon name="ellipsis" size={24} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="max-h-[70vh] w-72 overflow-y-auto">
+          <DropdownMenuContent className="max-h-[70vh] w-[22rem] overflow-y-auto">
             <DropdownMenuItem onSelect={() => onAction('reject')}>Reject</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onAction('close')}>Close</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onAction('mark-unread')}>Mark as unread</DropdownMenuItem>
@@ -117,16 +117,14 @@ export function BulkBar({
             >
               Complete
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onAction('public-comment')}>Public comment</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onAction('internal-comment')}>Internal comment</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onAction('comment')}>Comment</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onAction('change-workflow')}>Change workflow</DropdownMenuItem>
-            {(anyWithout('confirmed') || anyWithout('suspected')) && <DropdownMenuSeparator />}
-            {anyWithout('confirmed') && (
-              <DropdownMenuItem onSelect={() => onAction('flag-confirmed')}>Flag as confirmed automation</DropdownMenuItem>
-            )}
-            {anyWithout('suspected') && (
-              <DropdownMenuItem onSelect={() => onAction('flag-suspected')}>Flag as suspect automation</DropdownMenuItem>
-            )}
+            <DropdownMenuSeparator />
+            {flagItems.map((item) => (
+              <DropdownMenuItem key={item.flag} description={item.description} onSelect={() => onAction('set-flag', item.flag)}>
+                {item.label}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
