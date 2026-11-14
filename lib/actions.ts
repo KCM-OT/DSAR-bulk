@@ -193,7 +193,7 @@ function partition(requests: DsarRequest[], rules: SkipRule[]) {
 const stageRule = (stages: Stage[], key = 'stage'): SkipRule => ({
   key,
   test: (r) => stages.includes(r.stage),
-  text: (n) => `${reqs(n)} aren't eligible due to their current stage, hence skipped`,
+  text: (n) => `${reqs(n)} ${n === 1 ? "isn't" : "aren't"} eligible due to ${n === 1 ? "its" : "their"} current stage, hence skipped`,
 })
 
 function flagName(flag: 'confirmed' | 'suspected') {

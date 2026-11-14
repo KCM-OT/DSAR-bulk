@@ -2,96 +2,99 @@
 
 import * as React from 'react'
 
-import { List, ListItem } from '@/components/ui/list'
 import { Status } from '@/components/ui/status'
 import type { Plan, PlanGroup } from '@/lib/actions'
 import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 
-/** Restyles the ListItem title (heading font, medium) as light body text, matching the modal's other copy. */
-const lightRow = '[&_.font-heading]:font-sans [&_.font-heading]:font-light [&_.font-heading]:text-sm [&_.font-heading]:leading-5'
+/**
+ * Figma Status at default size is caption text (12/16) with a 4px gap and a 32px min box;
+ * the Vitreus copy here renders 14/20 with an 8px gap, so the summary overrides it.
+ */
+const captionStatus = 'min-h-8 gap-1 text-xs leading-4'
 
-/** Each outcome tone maps to a Vitreus Status tone; the label is for screen readers only. */
-const toneStatus = {
-  success: { tone: 'success', label: 'Will be processed' },
-  info: { tone: 'information', label: 'Note' },
-  warning: { tone: 'warning', label: 'Skipped' },
-} as const
+/** Each outcome tone maps to a Vitreus Status tone. */
+const statusTone = { success: 'success', info: 'information', warning: 'warning' } as const
 
-function StatusDot({ tone, label }: { tone: 'success' | 'information' | 'warning' | 'error'; label: string }) {
-  return (
-    <Status tone={tone}>
-      <span className="sr-only">{label}</span>
-    </Status>
-  )
-}
-
-function GroupRows({ group }: { group: PlanGroup }) {
+/** The requests in one outcome group, shown when its View link is open. */
+function GroupRequests({ group }: { group: PlanGroup }) {
   const { byId } = useStore()
-  const [open, setOpen] = React.useState(false)
-  const status = toneStatus[group.tone]
   const shown = group.ids.slice(0, 50)
   return (
-    <>
-      <ListItem
-        title={group.text}
-        className={lightRow}
-        leading={<StatusDot tone={status.tone} label={status.label} />}
-        trailing={
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            className="text-sm leading-5 text-vt-information hover:underline"
-          >
-            {open ? 'Hide' : 'View'}
-          </button>
-        }
-      />
-      {open && (
-        <li className="border-b border-vt-border px-4 pb-4 last:border-b-0">
-          <div className="max-h-40 overflow-auto rounded border border-vt-border bg-vt-table-header">
-            <table className="w-full text-xs">
-              <tbody>
-                {shown.map((id) => {
-                  const r = byId.get(id)
-                  return (
-                    <tr key={id} className="border-b border-vt-border last:border-0">
-                      <td className="px-2 py-1 font-medium text-vt-information">{id}</td>
-                      <td className="px-2 py-1 font-light">{r?.name}</td>
-                      <td className="px-2 py-1 font-light">{r?.stage}</td>
-                      <td className="px-2 py-1 font-light text-vt-grey-text">{r?.workflow}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {group.ids.length > shown.length && (
-              <p className="px-2 py-1 text-xs text-vt-grey-text">and {group.ids.length - shown.length} more</p>
-            )}
-          </div>
-        </li>
-      )}
-    </>
+    <div className="max-h-40 overflow-auto rounded border border-vt-border bg-vt-table-header">
+      <table className="w-full text-xs">
+        <tbody>
+          {shown.map((id) => {
+            const r = byId.get(id)
+            return (
+              <tr key={id} className="border-b border-vt-border last:border-0">
+                <td className="px-2 py-1 font-medium text-vt-information">{id}</td>
+                <td className="px-2 py-1 font-light">{r?.name}</td>
+                <td className="px-2 py-1 font-light">{r?.stage}</td>
+                <td className="px-2 py-1 font-light text-vt-grey-text">{r?.workflow}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {group.ids.length > shown.length && <p className="px-2 py-1 text-xs text-vt-grey-text">and {group.ids.length - shown.length} more</p>}
+    </div>
   )
 }
 
-/** The outcome of a bulk action, built from the Vitreus List (sparse) with a Status dot on each row. */
+/** One row: a caption-size Status with the outcome as its label, View on the right. */
+function GroupRow({ group }: { group: PlanGroup }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <li className="flex flex-col">
+      <div className="flex items-center justify-between gap-4">
+        <Status tone={statusTone[group.tone]} className={captionStatus}>
+          {group.text}
+        </Status>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="shrink-0 text-xs leading-4 font-light text-vt-link-text hover:underline"
+        >
+          {open ? 'Hide' : 'View'}
+        </button>
+      </div>
+      {open && (
+        <div className="pb-2 pl-3">
+          <GroupRequests group={group} />
+        </div>
+      )}
+    </li>
+  )
+}
+
+/**
+ * The outcome of a bulk action, per Figma DSAR 4632:18775: a bordered box with the title and
+ * count on one row, then caption-size Vitreus Status rows without dividers.
+ */
 export function PlanSummary({ plan, selectedCount, className }: { plan: Plan; selectedCount: number; className?: string }) {
   return (
-    <List title="Summary" caption={`${selectedCount.toLocaleString()} selected`} density="sparse" className={className}>
-      {plan.processIds.length === 0 && (
-        <ListItem
-          title="None of the selected requests are eligible for this action."
-          className={lightRow}
-          leading={<StatusDot tone="error" label="Error" />}
-        />
-      )}
-      {plan.outcome.map((g) => (
-        <GroupRows key={g.key} group={g} />
-      ))}
-      {plan.skipped.map((g) => (
-        <GroupRows key={`skip-${g.key}`} group={g} />
-      ))}
-    </List>
+    <section className={cn('flex flex-col rounded border border-vt-border px-4 py-[15px] text-vt-dark-text', className)}>
+      <header className="flex items-center justify-between">
+        <h3 className="font-heading text-base leading-6 font-medium tracking-[-0.32px]">Summary</h3>
+        <span className="text-xs leading-4 font-light">{selectedCount.toLocaleString()} selected</span>
+      </header>
+      <ul className="flex flex-col">
+        {plan.processIds.length === 0 && (
+          <li>
+            <Status tone="error" className={cn(captionStatus, 'text-vt-error')}>
+              None of the selected requests are eligible for this action
+            </Status>
+          </li>
+        )}
+        {plan.outcome.map((g) => (
+          <GroupRow key={g.key} group={g} />
+        ))}
+        {plan.skipped.map((g) => (
+          <GroupRow key={`skip-${g.key}`} group={g} />
+        ))}
+      </ul>
+    </section>
   )
 }

@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { InlineNotification } from '@/components/bulk/inline-notification'
 import { PlanSummary } from '@/components/bulk/plan-summary'
 import { RejectModal } from '@/components/bulk/reject-modal'
 import {
@@ -56,6 +57,18 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     </div>
   )
 }
+
+/**
+ * Second step of a two-part modal, per Figma DSAR 4632:18775: 32px top padding, an 18/24 title
+ * (-0.36px tracking), the close button 8px from the corner, and 8px between footer buttons.
+ * Applied as overrides so the Vitreus ModalPanel stays as synced.
+ */
+const CONFIRM_PANEL = cn(
+  'pt-8',
+  '[&>h2]:text-lg [&>h2]:leading-6 [&>h2]:tracking-[-0.36px]',
+  '[&>button[aria-label=Close]]:top-2 [&>button[aria-label=Close]]:right-2',
+  '[&>footer]:gap-2 [&>footer]:pt-[17px]',
+)
 
 function Note({ children, tone = 'info' }: { children: React.ReactNode; tone?: 'info' | 'warning' }) {
   return (
@@ -387,7 +400,8 @@ function CommentModal({
     const isPublic = kind === 'public'
     return (
       <ModalPanel
-        size="sm"
+        size="md"
+        className={CONFIRM_PANEL}
         title={isPublic ? 'Send message to data subjects?' : 'Add internal comment?'}
         onClose={onClose}
         footer={
@@ -403,13 +417,15 @@ function CommentModal({
       >
         <div className="flex flex-col gap-4">
           {isPublic ? (
-            <Note tone="warning">
+            <InlineNotification tone="warning">
               This message will be sent to the data subject of {n(plan.processIds.length)}
               {replyAs ? `, and those requests will be marked ${replyAs}` : ''}. Data subjects are notified by email, the same as for a single
               public comment.
-            </Note>
+            </InlineNotification>
           ) : (
-            <Note>This internal comment will be added to {n(plan.processIds.length)}. Data subjects won&apos;t see it.</Note>
+            <InlineNotification>
+              This internal comment will be added to {n(plan.processIds.length)}. Data subjects won&apos;t see it.
+            </InlineNotification>
           )}
           <PlanSummary plan={plan} selectedCount={selected.length} />
         </div>
