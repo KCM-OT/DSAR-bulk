@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { applyAction, FAILURE_REASONS, jobLabel, successMessage, type ActionId, type ActionParams } from './actions'
+import { applyAction, FAILURE_REASONS, jobLabel, successMessage, usesProgressFlow, type ActionId, type ActionParams, type PlanGroup } from './actions'
 import { generateRequests } from './mock-data'
 import type { DsarRequest } from './types'
 
@@ -19,6 +19,10 @@ export type Job = {
   ids: string[]
   total: number
   skippedCount: number
+  /** Why requests were left out before starting, shown on the completion view. */
+  skipped?: PlanGroup[]
+  /** Requests per batch. Progress-flow actions use small batches so the bar moves visibly. */
+  batchSize: number
   status: JobStatus
   processed: number
   succeeded: number
@@ -65,7 +69,7 @@ type Store = {
     ids: string[],
     skippedCount: number,
     retryOf?: string,
-    options?: { openModal?: boolean },
+    options?: { openModal?: boolean; skipped?: PlanGroup[] },
   ) => string
   /** A watched job belongs to an open action modal, which handles its non-success outcome itself. */
   watchJob: (jobId: string, watched: boolean) => void
@@ -155,6 +159,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ids,
         total: ids.length,
         skippedCount,
+        skipped: options?.skipped,
+        batchSize: usesProgressFlow(action) ? Math.min(BATCH_SIZE, Math.max(1, Math.ceil(ids.length / 25))) : BATCH_SIZE,
         status: 'queued',
         processed: 0,
         succeeded: 0,
@@ -202,7 +208,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     (jobId: string) => {
       const job = jobs.find((j) => j.id === jobId)
       if (!job) return
-      startJob(job.action, job.params, job.ids, job.skippedCount, job.id)
+      startJob(job.action, job.params, job.ids, job.skippedCount, job.id, { skipped: job.skipped })
     },
     [jobs, startJob],
   )
@@ -273,7 +279,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       let dropped = false
 
       const tick = () => {
-        const batch = job.ids.slice(processed, processed + BATCH_SIZE)
+        const batch = job.ids.slice(processed, processed + job.batchSize)
         const ok: string[] = []
         for (const id of batch) {
           if (Math.random() < settingsRef.current.failureRate) {

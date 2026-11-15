@@ -43,7 +43,7 @@ function GroupRequests({ group }: { group: PlanGroup }) {
 }
 
 /** One row: a caption-size Status with the outcome as its label, View on the right. */
-function GroupRow({ group }: { group: PlanGroup }) {
+export function GroupRow({ group }: { group: PlanGroup }) {
   const [open, setOpen] = React.useState(false)
   return (
     <li className="flex flex-col">
@@ -93,6 +93,20 @@ export function PlanSummary({ plan, selectedCount, className }: { plan: Plan; se
         ))}
         {plan.skipped.map((g) => (
           <GroupRow key={`skip-${g.key}`} group={g} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** A bordered box of outcome rows under a heading, per the Figma progress flow (skipped requests). */
+export function GroupBox({ title, groups, className }: { title: string; groups: PlanGroup[]; className?: string }) {
+  return (
+    <section className={cn('flex flex-col gap-1 rounded border border-vt-border px-4 py-[15px] text-vt-dark-text', className)}>
+      <h3 className="font-heading text-base leading-6 font-medium tracking-[-0.32px]">{title}</h3>
+      <ul className="flex flex-col">
+        {groups.map((g) => (
+          <GroupRow key={g.key} group={g} />
         ))}
       </ul>
     </section>

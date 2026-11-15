@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils'
 const tones = {
   info: { icon: 'circle-info', iconClass: 'text-vt-information', box: 'border-[#c2dbe9] bg-[#f3f8fb]' },
   warning: { icon: 'triangle-exclamation', iconClass: 'text-vt-warning', box: 'border-[#f4dab6] bg-[#fffcf2]' },
+  success: { icon: 'circle-check', iconClass: 'text-vt-status-success', box: 'border-[#c4e3cc] bg-[#f2faf4]' },
+  error: { icon: 'circle-exclamation', iconClass: 'text-vt-error', box: 'border-[#f5c2c2] bg-[#fff5f5]' },
 } as const
 
 export function InlineNotification({
@@ -26,7 +28,7 @@ export function InlineNotification({
   const t = tones[tone]
   return (
     <div
-      role={tone === 'warning' ? 'alert' : 'status'}
+      role={tone === 'warning' || tone === 'error' ? 'alert' : 'status'}
       className={cn('flex min-h-10 items-center gap-4 rounded border px-4 py-2', t.box, className)}
     >
       <Icon name={t.icon} variant="filled" size={24} className={cn('shrink-0', t.iconClass)} />

@@ -18,7 +18,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ChangeWorkflowModal } from '@/components/bulk/change-workflow-modal'
 import { InlineNotification } from '@/components/bulk/inline-notification'
+import { CONFIRM_PANEL } from '@/components/bulk/modal-styles'
 import { PlanSummary } from '@/components/bulk/plan-summary'
 import { RejectModal } from '@/components/bulk/reject-modal'
 import {
@@ -33,6 +35,7 @@ import {
   type FlagPlan,
   type FlagState,
   type FlagTarget,
+  type Plan,
   type ReplyAs,
 } from '@/lib/actions'
 import { ASSIGNEES, RESPONSE_TEMPLATES, WORKFLOWS } from '@/lib/mock-data'
@@ -57,18 +60,6 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     </div>
   )
 }
-
-/**
- * Second step of a two-part modal, per Figma DSAR 4632:18775: 32px top padding, an 18/24 title
- * (-0.36px tracking), the close button 8px from the corner, and 8px between footer buttons.
- * Applied as overrides so the Vitreus ModalPanel stays as synced.
- */
-const CONFIRM_PANEL = cn(
-  'pt-8',
-  '[&>h2]:text-lg [&>h2]:leading-6 [&>h2]:tracking-[-0.36px]',
-  '[&>button[aria-label=Close]]:top-2 [&>button[aria-label=Close]]:right-2',
-  '[&>footer]:gap-2 [&>footer]:pt-[17px]',
-)
 
 function Note({ children, tone = 'info' }: { children: React.ReactNode; tone?: 'info' | 'warning' }) {
   return (
@@ -160,7 +151,7 @@ function StandardActionModal({
   }))
   const plan = React.useMemo(() => computePlan(action, params, selected), [action, params, selected])
 
-  const needsInput = (action === 'assign' && !params.assignee) || (action === 'change-workflow' && !params.workflow)
+  const needsInput = action === 'assign' && !params.assignee
 
   const title = pending.single ? ACTION_LABELS[action] : `${ACTION_LABELS[action]}: ${n(selected.length)} selected`
 
@@ -240,8 +231,6 @@ function StandardActionModal({
           </Note>
         )}
 
-        {action === 'change-workflow' && <WorkflowFields params={params} setParams={setParams} selected={selected} optional={false} />}
-
         {action === 'move-to-standard' && (
           <>
             <Note>
@@ -286,11 +275,13 @@ function targetOptions(from: FlagState): { value: FlagTarget; label: string }[] 
 function FlagModal({
   flag,
   selected,
+  single,
   onClose,
   onConfirm,
 }: {
   flag: Flag
   selected: DsarRequest[]
+  single?: boolean
   onClose: () => void
   onConfirm: (params: ActionParams, ids: string[], skipped: number) => void
 }) {
@@ -310,7 +301,7 @@ function FlagModal({
   return (
     <ModalPanel
       size="sm"
-      title={`${title}: ${n(selected.length)} selected`}
+      title={single ? title : `${title}: ${n(selected.length)} selected`}
       onClose={onClose}
       footer={
         <>
@@ -593,6 +584,12 @@ export function ActionLauncher({
     setJobId(id)
   }
 
+  // Progress-flow actions hand off to the progress modal (Minimize, Abort, completion summary).
+  const startWithProgress = (params: ActionParams, plan: Plan) => {
+    startJob(pending.action, { ...params, single: pending.single }, plan.processIds, plan.skippedCount, undefined, { skipped: plan.skipped })
+    onStarted()
+  }
+
   // Closing while the job runs leaves it running in the background (Story 7, AC 5).
   const close = () => {
     if (jobId) {
@@ -607,10 +604,12 @@ export function ActionLauncher({
   return (
     <Modal open onOpenChange={(open) => !open && close()}>
       <div className="relative">
-        {pending.action === 'comment' ? (
+        {pending.action === 'change-workflow' ? (
+          <ChangeWorkflowModal selected={selected} single={pending.single} onClose={close} onStart={startWithProgress} />
+        ) : pending.action === 'comment' ? (
           <CommentModal selected={selected} mode={pending.commentMode} onClose={close} onConfirm={confirm} />
         ) : pending.action === 'set-flag' ? (
-          <FlagModal flag={pending.flag ?? 'confirmed'} selected={selected} onClose={close} onConfirm={confirm} />
+          <FlagModal flag={pending.flag ?? 'confirmed'} selected={selected} single={pending.single} onClose={close} onConfirm={confirm} />
         ) : pending.action === 'reject' ? (
           <RejectModal selected={selected} onClose={close} onConfirm={confirm} />
         ) : (
