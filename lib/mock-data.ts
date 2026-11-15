@@ -3,13 +3,16 @@ import type { AutomationFlag, DsarRequest, Stage } from './types'
 export const CURRENT_USER = 'Kevin Marshall'
 export const TODAY = new Date('2026-11-06T09:00:00')
 
-export const WORKFLOWS = [
-  'Default DSAR workflow',
-  'Access request - EU',
-  'Deletion request - US',
-  'Authorized agent - automated',
-  'Suspected automation review',
-] as const
+export const WORKFLOWS = ['Access - Standard', 'Deletion - Standard', 'Opt-Out - CCPA', 'Authorized agent - automated'] as const
+
+const AUTOMATED_WORKFLOW = 'Authorized agent - automated'
+
+/** The standard workflow for a request type (requests outside the automated workflow). */
+function standardWorkflow(type: string) {
+  if (type === 'Deletion') return 'Deletion - Standard'
+  if (type === 'Do not sell or share') return 'Opt-Out - CCPA'
+  return 'Access - Standard'
+}
 
 export const ASSIGNEES = [CURRENT_USER, 'Priya Malhotra', 'Jordan Lee', 'Amara Okafor', 'Diego Ramos', 'Privacy Ops queue']
 
@@ -93,22 +96,10 @@ export function generateRequests(count = 640): DsarRequest[] {
     const extended = rand() < 0.12
     const deadline = new Date(created.getTime() + (extended ? 90 : 45) * 86400000)
 
-    const workflow =
-      flag === 'confirmed'
-        ? weighted(rand, [
-            ['Authorized agent - automated', 7],
-            ['Default DSAR workflow', 3],
-          ])
-        : flag === 'suspected'
-          ? weighted(rand, [
-              ['Suspected automation review', 5],
-              ['Default DSAR workflow', 5],
-            ])
-          : weighted(rand, [
-              ['Default DSAR workflow', 5],
-              ['Access request - EU', 3],
-              ['Deletion request - US', 3],
-            ])
+    // One random draw per request, as before, so the rest of the seed stays stable.
+    // Confirmed automated submissions are 70% in the automated workflow; the rest map by request type.
+    const roll = rand()
+    const automated = flag === 'confirmed' && roll * 10 <= 7
 
     const subtasksTotal = stage === 'New' || stage === 'Unverified' ? Math.floor(rand() * 2) : 1 + Math.floor(rand() * 4)
     const done = stage === 'Complete' ? subtasksTotal : Math.floor(rand() * (subtasksTotal + 1))
@@ -120,6 +111,9 @@ export function generateRequests(count = 640): DsarRequest[] {
     const submittedBy = flag ? `${agent} (authorized agent)` : 'Data subject'
     const assignee = rand() < 0.35 ? null : pick(ASSIGNEES)
 
+    const requestType = flag ? weighted(rand, [['Deletion', 6], ['Do not sell or share', 3], ['Access', 1]]) : pick(TYPES)
+    const workflow = automated ? AUTOMATED_WORKFLOW : standardWorkflow(requestType)
+
     requests.push({
       id,
       name: `${first} ${last}`,
@@ -127,7 +121,7 @@ export function generateRequests(count = 640): DsarRequest[] {
       organization: 'Priya Demo',
       submittedBy,
       stage,
-      requestType: flag ? weighted(rand, [['Deletion', 6], ['Do not sell or share', 3], ['Access', 1]]) : pick(TYPES),
+      requestType,
       createdAt: created.toISOString(),
       deadline: deadline.toISOString(),
       extended,
