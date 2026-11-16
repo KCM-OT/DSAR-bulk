@@ -53,8 +53,10 @@ export type Toast = {
   title?: string
   text: string
   jobId?: string
-  /** Shows a progress bar that fills over one second (completed bulk actions). */
+  /** Shows a progress bar that fills over one second. */
   progress?: boolean
+  /** Stays until the user closes it (bulk action completion summaries). */
+  persistent?: boolean
 }
 export type Notification = { id: string; text: string; at: number; jobId?: string; read: boolean }
 
@@ -138,7 +140,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const pushToast = React.useCallback((toast: Omit<Toast, 'id'>) => {
     const id = uid('toast')
     setToasts((prev) => [...prev, { ...toast, id }])
-    window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 7000)
+    if (!toast.persistent) window.setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 7000)
   }, [])
 
   const dismissToast = React.useCallback((id: string) => setToasts((prev) => prev.filter((t) => t.id !== id)), [])
@@ -231,9 +233,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setNotifications((prev) => [{ id: uid('n'), text, at: Date.now(), jobId: job.id, read: false }, ...prev])
       if (openJobRef.current === job.id) return
       if (status === 'success') {
-        pushToast({ tone: 'success', title: 'Success', text: successMessage(job.action, job.params, succeeded), progress: true })
+        pushToast({ tone: 'success', title: 'Success', text: successMessage(job.action, job.params, succeeded), persistent: true })
       } else if (!watched.current.has(job.id)) {
-        pushToast({ tone: status === 'failed' ? 'error' : 'warning', text, jobId: job.id })
+        pushToast({ tone: status === 'failed' ? 'error' : 'warning', text, jobId: job.id, persistent: true })
       }
     },
     [pushToast],
