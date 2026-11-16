@@ -3,9 +3,9 @@
 import * as React from 'react'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { ModalPanel } from '@/components/ui/modal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { CONFIRM_PANEL } from '@/components/bulk/modal-styles'
 import { GroupBox } from '@/components/bulk/plan-summary'
 import { computePlan, type ActionParams, type Plan } from '@/lib/actions'
@@ -163,11 +163,11 @@ export function ChangeWorkflowModal({
             })}
           </SelectContent>
         </Select>
-        <Checkbox
+        <Switch
           label="Delete subtasks currently open on request"
           description="Open subtasks are removed when the workflow changes."
           checked={Boolean(params.deleteOpenSubtasks)}
-          onCheckedChange={(checked) => setParams((p) => ({ ...p, deleteOpenSubtasks: checked === true }))}
+          onCheckedChange={(checked) => setParams((p) => ({ ...p, deleteOpenSubtasks: checked }))}
         />
       </div>
     </ModalPanel>
