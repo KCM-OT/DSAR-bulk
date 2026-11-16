@@ -97,13 +97,6 @@ export const ACTION_LABELS: Record<ActionId, string> = {
   'set-flag': 'Update automated submission flag',
 }
 
-/**
- * Actions that use the progress flow (Figma, Change workflow): choose, then confirm, then a
- * progress modal with Minimize and Abort, then a completion summary.
- */
-export const PROGRESS_ACTIONS: ActionId[] = ['change-workflow']
-export const usesProgressFlow = (action: ActionId) => PROGRESS_ACTIONS.includes(action)
-
 export function jobLabel(action: ActionId, params: ActionParams) {
   if (action === 'comment') {
     if (params.commentKind === 'internal') return 'Bulk internal comment'
@@ -112,6 +105,8 @@ export function jobLabel(action: ActionId, params: ActionParams) {
     return 'Add public comment'
   }
   if ((action === 'reject' || action === 'close') && !params.single) return `Bulk ${ACTION_LABELS[action].toLowerCase()}`
+  // "Complete: complete" would read oddly on the completion view.
+  if (action === 'complete' && !params.single) return 'Complete requests'
   return ACTION_LABELS[action]
 }
 

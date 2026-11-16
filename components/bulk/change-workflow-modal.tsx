@@ -20,7 +20,7 @@ export function Subtitle({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Confirm step of a progress-flow action (Figma, "Confirm: change workflow"): what will happen,
+ * Confirm step of a bulk action (Figma, "Confirm: change workflow"): what will happen,
  * a box with the skipped requests, and a note that the action runs in the background.
  */
 export function ProgressConfirmStep({
@@ -28,6 +28,7 @@ export function ProgressConfirmStep({
   summary,
   submitLabel,
   plan,
+  destructive,
   onBack,
   onCancel,
   onSubmit,
@@ -36,7 +37,9 @@ export function ProgressConfirmStep({
   summary: React.ReactNode
   submitLabel: string
   plan: Plan
-  onBack: () => void
+  destructive?: boolean
+  /** Omitted when there was no earlier step to go back to. */
+  onBack?: () => void
   onCancel: () => void
   onSubmit: () => void
 }) {
@@ -52,10 +55,12 @@ export function ProgressConfirmStep({
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="secondary" onClick={onBack}>
-            Back
-          </Button>
-          <Button disabled={none} onClick={onSubmit}>
+          {onBack && (
+            <Button variant="secondary" onClick={onBack}>
+              Back
+            </Button>
+          )}
+          <Button variant={destructive ? 'destructive' : 'default'} disabled={none} onClick={onSubmit}>
             {submitLabel}
           </Button>
         </>
@@ -63,10 +68,12 @@ export function ProgressConfirmStep({
     >
       <div className="flex flex-col gap-4">
         <Subtitle>{none ? 'None of the selected requests are eligible for this action.' : summary}</Subtitle>
+        {/* Actions with more than one outcome (flags, optional workflow) list each one. */}
+        {!none && plan.outcome.length > 1 && <GroupBox title="What will happen" groups={plan.outcome} />}
         {plan.skippedCount > 0 ? (
           <GroupBox title={`${n(plan.skippedCount)} will be skipped`} groups={plan.skipped} />
         ) : (
-          <GroupBox title="No requests will be skipped" groups={plan.outcome} />
+          plan.outcome.length <= 1 && <GroupBox title="No requests will be skipped" groups={plan.outcome} />
         )}
         <p className="text-xs leading-4 font-light text-vt-dark-text">
           The action runs in the background. You can close the progress window without stopping it.

@@ -20,10 +20,13 @@ import type { DsarRequest } from '@/lib/types'
  */
 export function RejectModal({
   selected,
+  single,
   onClose,
   onConfirm,
 }: {
   selected: DsarRequest[]
+  /** Bulk rejects continue to a confirm step; a single reject submits from here. */
+  single?: boolean
   onClose: () => void
   onConfirm: (params: ActionParams, ids: string[], skipped: number) => void
 }) {
@@ -140,7 +143,7 @@ export function RejectModal({
               Cancel
             </Button>
             <Button disabled={!resolution || plan.processIds.length === 0} onClick={submit}>
-              Reject
+              {single ? 'Reject' : 'Continue'}
             </Button>
           </div>
         </div>

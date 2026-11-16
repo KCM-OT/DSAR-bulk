@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ChangeWorkflowModal } from '@/components/bulk/change-workflow-modal'
+import { ChangeWorkflowModal, ProgressConfirmStep } from '@/components/bulk/change-workflow-modal'
 import { InlineNotification } from '@/components/bulk/inline-notification'
 import { CONFIRM_PANEL } from '@/components/bulk/modal-styles'
 import { PlanSummary } from '@/components/bulk/plan-summary'
@@ -166,12 +166,12 @@ function StandardActionModal({
             Cancel
           </Button>
           <Button
-            variant={action === 'reject' ? 'destructive' : 'default'}
+            variant={action === 'reject' && pending.single ? 'destructive' : 'default'}
             disabled={needsInput || plan.processIds.length === 0}
             onClick={() => onConfirm(params, plan.processIds, plan.skippedCount)}
           >
-            {ACTION_LABELS[action]}
-            {plan.processIds.length > 0 && !needsInput ? ` (${plan.processIds.length})` : ''}
+            {pending.single ? ACTION_LABELS[action] : 'Continue'}
+            {pending.single && plan.processIds.length > 0 && !needsInput ? ` (${plan.processIds.length})` : ''}
           </Button>
         </>
       }
@@ -309,8 +309,8 @@ function FlagModal({
             Cancel
           </Button>
           <Button disabled={plan.processIds.length === 0} onClick={() => onConfirm(full, plan.processIds, plan.skippedCount)}>
-            {item.mixed ? 'Apply' : title}
-            {plan.processIds.length > 0 ? ` (${plan.processIds.length})` : ''}
+            {!single ? 'Continue' : item.mixed ? 'Apply' : title}
+            {single && plan.processIds.length > 0 ? ` (${plan.processIds.length})` : ''}
           </Button>
         </>
       }
@@ -552,6 +552,106 @@ function CommentModal({
   )
 }
 
+/** Bulk actions with nothing to choose open straight on the confirm step. */
+const NO_INPUT: ActionId[] = ['mark-read', 'mark-unread', 'complete']
+/** Actions whose modal already has its own confirm step (Figma), so they go straight to progress. */
+const OWN_CONFIRM: ActionId[] = ['change-workflow', 'comment']
+
+const b = (text: React.ReactNode) => <strong className="font-medium">{text}</strong>
+
+/** Title, summary and button for the confirm step, per the Figma "Confirm: change workflow" frame. */
+function confirmCopy(pending: PendingAction, params: ActionParams, selected: DsarRequest[], count: number) {
+  const reqs = b(n(count))
+  switch (pending.action) {
+    case 'reject':
+      return {
+        title: 'Confirm: reject',
+        submitLabel: 'Reject',
+        destructive: true,
+        summary: (
+          <>
+            Reject {reqs}
+            {params.reason && <> with the resolution {b(params.reason)}</>}.
+            {params.commentText?.trim() &&
+              (params.commentKind === 'public'
+                ? ' Your comment is sent to each data subject.'
+                : ' Your comment is added to each request as an internal comment.')}
+          </>
+        ),
+      }
+    case 'close':
+      return {
+        title: 'Confirm: close',
+        // "Close" alone reads like closing this window.
+        submitLabel: 'Close requests',
+        summary: (
+          <>
+            Close {reqs}
+            {params.reason && <> with the reason {b(params.reason)}</>}.
+          </>
+        ),
+      }
+    case 'mark-read':
+    case 'mark-unread':
+      return {
+        title: `Confirm: ${ACTION_LABELS[pending.action].toLowerCase()}`,
+        submitLabel: ACTION_LABELS[pending.action],
+        summary: (
+          <>
+            Mark {reqs} as {pending.action === 'mark-read' ? 'read' : 'unread'}. The read state changes only for you.
+          </>
+        ),
+      }
+    case 'complete':
+      return {
+        title: 'Confirm: complete',
+        submitLabel: 'Complete',
+        summary: (
+          <>
+            Move {reqs} to the {b('Complete')} stage. Subtasks of skipped stages are skipped, data subjects are notified and downstream
+            automation runs.
+          </>
+        ),
+      }
+    case 'move-to-standard':
+      return {
+        title: 'Confirm: move to standard queue',
+        submitLabel: 'Move to standard queue',
+        summary: (
+          <>
+            Remove the automated submission flag from {reqs} and move them to {b('Standard requests')}
+            {params.workflow && <>. Eligible requests also move to {b(params.workflow)}</>}
+            {params.workflow && params.deleteOpenSubtasks && ', and their open subtasks are deleted'}.
+          </>
+        ),
+      }
+    case 'set-flag': {
+      const item = flagMenuItem(pending.flag ?? 'confirmed', selected)
+      const label = item.label.replace(/…$/, '')
+      return {
+        title: `Confirm: ${label[0].toLowerCase()}${label.slice(1)}`,
+        submitLabel: item.mixed ? 'Apply' : label,
+        summary: (
+          <>
+            Update the automated submission flag on {reqs}
+            {params.workflow && <>. Eligible requests also move to {b(params.workflow)}</>}.
+          </>
+        ),
+      }
+    }
+    case 'assign':
+      return { title: 'Confirm: assign', submitLabel: 'Assign', summary: <>Assign {reqs} to {b(params.assignee)}.</> }
+    case 'extend':
+      return { title: 'Confirm: extend', submitLabel: 'Extend', summary: <>Extend the deadline of {reqs} by 45 days.</> }
+    default:
+      return {
+        title: `Confirm: ${ACTION_LABELS[pending.action].toLowerCase()}`,
+        submitLabel: ACTION_LABELS[pending.action],
+        summary: <>Update {reqs}.</>,
+      }
+  }
+}
+
 export function ActionLauncher({
   pending,
   onClose,
@@ -578,16 +678,31 @@ export function ActionLauncher({
     onStarted()
   }, [job, watchJob, setOpenJobId, dismissJob, onStarted])
 
-  const confirm = (params: ActionParams, ids: string[], skipped: number) => {
-    const id = startJob(pending.action, { ...params, single: pending.single }, ids, skipped, undefined, { openModal: false })
-    watchJob(id, true)
-    setJobId(id)
-  }
+  // Bulk actions (and Change workflow anywhere) follow the Figma progress flow: confirm, then a
+  // progress modal with Minimize and Abort, then a completion summary. Single-request actions
+  // keep the in-modal loader and success toast.
+  const progressFlow = !pending.single || pending.action === 'change-workflow'
+  const noInput = progressFlow && NO_INPUT.includes(pending.action)
+  const [confirmParams, setConfirmParams] = React.useState<ActionParams | null>(() => (noInput ? {} : null))
+  const confirmPlan = React.useMemo(
+    () => (confirmParams ? computePlan(pending.action, confirmParams, selected) : null),
+    [confirmParams, pending.action, selected],
+  )
 
-  // Progress-flow actions hand off to the progress modal (Minimize, Abort, completion summary).
   const startWithProgress = (params: ActionParams, plan: Plan) => {
     startJob(pending.action, { ...params, single: pending.single }, plan.processIds, plan.skippedCount, undefined, { skipped: plan.skipped })
     onStarted()
+  }
+
+  const confirm = (params: ActionParams, ids: string[], skipped: number) => {
+    if (progressFlow) {
+      if (OWN_CONFIRM.includes(pending.action)) startWithProgress(params, computePlan(pending.action, params, selected))
+      else setConfirmParams(params)
+      return
+    }
+    const id = startJob(pending.action, { ...params, single: pending.single }, ids, skipped, undefined, { openModal: false })
+    watchJob(id, true)
+    setJobId(id)
   }
 
   // Closing while the job runs leaves it running in the background (Story 7, AC 5).
@@ -604,16 +719,30 @@ export function ActionLauncher({
   return (
     <Modal open onOpenChange={(open) => !open && close()}>
       <div className="relative">
-        {pending.action === 'change-workflow' ? (
-          <ChangeWorkflowModal selected={selected} single={pending.single} onClose={close} onStart={startWithProgress} />
-        ) : pending.action === 'comment' ? (
-          <CommentModal selected={selected} mode={pending.commentMode} onClose={close} onConfirm={confirm} />
-        ) : pending.action === 'set-flag' ? (
-          <FlagModal flag={pending.flag ?? 'confirmed'} selected={selected} single={pending.single} onClose={close} onConfirm={confirm} />
-        ) : pending.action === 'reject' ? (
-          <RejectModal selected={selected} onClose={close} onConfirm={confirm} />
-        ) : (
-          <StandardActionModal pending={pending} selected={selected} onClose={close} onConfirm={confirm} />
+        {confirmParams && confirmPlan && (
+          <ProgressConfirmStep
+            {...confirmCopy(pending, confirmParams, selected, confirmPlan.processIds.length)}
+            plan={confirmPlan}
+            onBack={noInput ? undefined : () => setConfirmParams(null)}
+            onCancel={close}
+            onSubmit={() => startWithProgress(confirmParams, confirmPlan)}
+          />
+        )}
+        {/* Kept mounted (hidden) during the confirm step, so Back returns to the user's choices. */}
+        {!noInput && (
+          <div className={cn(confirmParams && 'hidden')}>
+            {pending.action === 'change-workflow' ? (
+              <ChangeWorkflowModal selected={selected} single={pending.single} onClose={close} onStart={startWithProgress} />
+            ) : pending.action === 'comment' ? (
+              <CommentModal selected={selected} mode={pending.commentMode} onClose={close} onConfirm={confirm} />
+            ) : pending.action === 'set-flag' ? (
+              <FlagModal flag={pending.flag ?? 'confirmed'} selected={selected} single={pending.single} onClose={close} onConfirm={confirm} />
+            ) : pending.action === 'reject' ? (
+              <RejectModal selected={selected} single={pending.single} onClose={close} onConfirm={confirm} />
+            ) : (
+              <StandardActionModal pending={pending} selected={selected} onClose={close} onConfirm={confirm} />
+            )}
+          </div>
         )}
         {jobId && (
           <div

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { applyAction, FAILURE_REASONS, jobLabel, successMessage, usesProgressFlow, type ActionId, type ActionParams, type PlanGroup } from './actions'
+import { applyAction, FAILURE_REASONS, jobLabel, successMessage, type ActionId, type ActionParams, type PlanGroup } from './actions'
 import { generateRequests } from './mock-data'
 import type { DsarRequest } from './types'
 
@@ -21,7 +21,7 @@ export type Job = {
   skippedCount: number
   /** Why requests were left out before starting, shown on the completion view. */
   skipped?: PlanGroup[]
-  /** Requests per batch. Progress-flow actions use small batches so the bar moves visibly. */
+  /** Requests per batch: small enough that the progress bar moves visibly. */
   batchSize: number
   status: JobStatus
   processed: number
@@ -160,7 +160,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         total: ids.length,
         skippedCount,
         skipped: options?.skipped,
-        batchSize: usesProgressFlow(action) ? Math.min(BATCH_SIZE, Math.max(1, Math.ceil(ids.length / 25))) : BATCH_SIZE,
+        batchSize: Math.min(BATCH_SIZE, Math.max(1, Math.ceil(ids.length / 25))),
         status: 'queued',
         processed: 0,
         succeeded: 0,
