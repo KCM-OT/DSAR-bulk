@@ -26,15 +26,10 @@ import { RejectModal } from '@/components/bulk/reject-modal'
 import {
   ACTION_LABELS,
   computePlan,
-  flagCounts,
   flagMenuItem,
-  submissionName,
   type ActionId,
   type ActionParams,
   type Flag,
-  type FlagPlan,
-  type FlagState,
-  type FlagTarget,
   type Plan,
   type ReplyAs,
 } from '@/lib/actions'
@@ -251,26 +246,9 @@ function StandardActionModal({
   )
 }
 
-const STATE_NAMES: Record<FlagState, string> = {
-  none: 'Standard',
-  confirmed: 'Confirmed automated submission',
-  suspected: 'Suspected automated submission',
-}
-
-/** Options for one group of a mixed selection, worded from that group's current state. */
-function targetOptions(from: FlagState): { value: FlagTarget; label: string }[] {
-  const opts: { value: FlagTarget; label: string }[] = [
-    { value: 'keep', label: from === 'none' ? 'Leave as standard' : `Keep as ${submissionName(from)}` },
-  ]
-  for (const to of ['confirmed', 'suspected'] as Flag[])
-    if (to !== from) opts.push({ value: to, label: from === 'none' ? `Flag as ${submissionName(to)}` : `Change to ${submissionName(to)}` })
-  if (from !== 'none') opts.push({ value: 'none', label: 'Remove flag (move to standard queue)' })
-  return opts
-}
-
 /**
- * Flag, change or remove the automated submission flag. A uniform selection goes straight to
- * the outcome; a mixed one lists each current state with its own choice, pre-set from the menu item.
+ * Flag, change or remove the automated submission flag. The plan comes from the menu item
+ * (for a mixed selection, its default per-group plan); the modal shows only the summary.
  */
 function FlagModal({
   flag,
@@ -286,16 +264,8 @@ function FlagModal({
   onConfirm: (params: ActionParams, ids: string[], skipped: number) => void
 }) {
   const item = React.useMemo(() => flagMenuItem(flag, selected), [flag, selected])
-  const counts = React.useMemo(() => flagCounts(selected), [selected])
-  const [flagPlan, setFlagPlan] = React.useState<FlagPlan>(item.plan)
-  const [params, setParams] = React.useState<ActionParams>({ workflow: null })
-  const full: ActionParams = { ...params, flagPlan }
-  const plan = React.useMemo(
-    () => computePlan('set-flag', full, selected),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flagPlan, params, selected],
-  )
-  const groups = (['none', 'confirmed', 'suspected'] as FlagState[]).filter((s) => counts[s] > 0)
+  const full: ActionParams = React.useMemo(() => ({ workflow: null, flagPlan: item.plan }), [item])
+  const plan = React.useMemo(() => computePlan('set-flag', full, selected), [full, selected])
   const title = item.label.replace(/…$/, '')
 
   return (
@@ -316,34 +286,6 @@ function FlagModal({
       }
     >
       <div className="flex flex-col gap-4">
-        <Note>
-          Requests move between the Standard, Confirmed and Suspected automated submission views the next time the list refreshes. Stage,
-          assignee, submitter data and due date don&apos;t change.
-        </Note>
-        {item.mixed && (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm">
-              The selected requests don&apos;t all have the same automated submission flag. Choose what happens to each group.
-            </p>
-            {groups.map((from) => (
-              <Field key={from} label={`${STATE_NAMES[from]} (${n(counts[from])})`}>
-                <Select value={flagPlan[from]} onValueChange={(v) => setFlagPlan((fp) => ({ ...fp, [from]: v as FlagTarget }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetOptions(from).map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            ))}
-          </div>
-        )}
-        <WorkflowFields params={params} setParams={setParams} selected={selected} optional />
         <PlanSummary plan={plan} selectedCount={selected.length} />
       </div>
     </ModalPanel>
