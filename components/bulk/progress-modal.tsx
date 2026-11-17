@@ -201,7 +201,7 @@ function ProgressFlowContent({ job }: { job: Job }) {
               </div>
             )}
             <FailedList job={job} />
-            {job.skipped && job.skipped.length > 0 && <GroupBox title="Skipped" groups={job.skipped} />}
+            {job.skipped && job.skipped.length > 0 && <GroupBox title="Skipped" groups={job.skipped} filterable />}
           </>
         )}
       </div>

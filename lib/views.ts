@@ -45,3 +45,33 @@ export const VIEWS: SavedView[] = [
   view({ id: 'confirmed', label: 'Confirmed automated submissions', filters: ['confirmed'] }),
   view({ id: 'suspected', label: 'Suspected automated submissions', filters: ['suspected'] }),
 ]
+
+/**
+ * A one-off filter on a fixed set of requests, e.g. the requests a bulk action skipped.
+ * It is handed to a new queue tab through localStorage (the ID list can be too long for a URL).
+ */
+export type IdFilter = { label: string; ids: string[] }
+
+const ID_FILTER_PREFIX = 'dsar-id-filter:'
+export const ID_FILTER_PARAM = 'filter'
+
+/** Stores the filter and returns the queue URL that opens it. */
+export function idFilterUrl(filter: IdFilter): string | null {
+  const key = Math.random().toString(36).slice(2, 10)
+  try {
+    window.localStorage.setItem(ID_FILTER_PREFIX + key, JSON.stringify(filter))
+  } catch {
+    return null
+  }
+  return `/?${ID_FILTER_PARAM}=${key}`
+}
+
+export function loadIdFilter(key: string): IdFilter | null {
+  try {
+    const raw = window.localStorage.getItem(ID_FILTER_PREFIX + key)
+    const parsed = raw ? (JSON.parse(raw) as IdFilter) : null
+    return parsed && typeof parsed.label === 'string' && Array.isArray(parsed.ids) ? parsed : null
+  } catch {
+    return null
+  }
+}

@@ -26,7 +26,7 @@ import { ActionLauncher, type PendingAction } from '@/components/bulk/action-lau
 import { daysLeft, emailFor, formatTableDate } from '@/lib/mock-data'
 import { MAX_SELECTION, useStore } from '@/lib/store'
 import type { DsarRequest, ViewId } from '@/lib/types'
-import { FILTERS, matchesFilters, VIEWS, type FilterId } from '@/lib/views'
+import { FILTERS, ID_FILTER_PARAM, loadIdFilter, matchesFilters, VIEWS, type FilterId, type IdFilter } from '@/lib/views'
 import { cn } from '@/lib/utils'
 
 type SortKey = 'createdAt' | 'daysLeft' | 'subtasks'
@@ -171,6 +171,17 @@ export function RequestsQueue() {
   const [view, setView] = React.useState<ViewId>('all')
   const [filters, setFilters] = React.useState<FilterId[]>([])
   const [filtersHidden, setFiltersHidden] = React.useState(false)
+  // A filter on a fixed set of requests, opened from a bulk action's skipped list (?filter=…).
+  const [idFilter, setIdFilter] = React.useState<(IdFilter & { set: Set<string> }) | null>(null)
+  React.useEffect(() => {
+    const key = new URLSearchParams(window.location.search).get(ID_FILTER_PARAM)
+    if (!key) return
+    const loaded = loadIdFilter(key)
+    if (loaded) setIdFilter({ ...loaded, set: new Set(loaded.ids) })
+    else pushToast({ tone: 'error', text: 'This filtered view is no longer available.' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const tagCount = filters.length + (idFilter ? 1 : 0)
   const [query, setQuery] = React.useState('')
   const [page, setPage] = React.useState(1)
   const router = useRouter()
@@ -192,7 +203,7 @@ export function RequestsQueue() {
   const rows = React.useMemo(() => {
     const term = query.trim().toLowerCase()
     const list = snapshot
-      .filter((r) => matchesFilters(r, filters))
+      .filter((r) => matchesFilters(r, filters) && (!idFilter || idFilter.set.has(r.id)))
       .map((r) => byId.get(r.id) ?? r)
       .filter((r) => !term || r.id.toLowerCase().includes(term) || r.name.toLowerCase().includes(term))
     const value = (r: DsarRequest): number | string => {
@@ -211,7 +222,7 @@ export function RequestsQueue() {
       const cmp = av < bv ? -1 : av > bv ? 1 : 0
       return sort.dir === 'asc' ? cmp : -cmp
     })
-  }, [snapshot, byId, filters, query, sort])
+  }, [snapshot, byId, filters, idFilter, query, sort])
 
   const pageRows = rows.slice((page - 1) * pageSize, page * pageSize)
   const pageSelected = pageRows.filter((r) => selected.has(r.id)).length
@@ -221,6 +232,7 @@ export function RequestsQueue() {
   const changeView = (next: ViewId) => {
     setView(next)
     setFilters(VIEWS.find((v) => v.id === next)!.filters)
+    setIdFilter(null)
     setFiltersHidden(false)
     setPage(1)
     setSelected(new Set())
@@ -229,8 +241,15 @@ export function RequestsQueue() {
   // Removing a tag widens the results; once nothing is left the table is back to All requests.
   const removeFilter = (id: FilterId) => {
     const next = filters.filter((f) => f !== id)
-    if (next.length === 0) return changeView('all')
+    if (next.length === 0 && !idFilter) return changeView('all')
     setFilters(next)
+    setPage(1)
+    setSelected(new Set())
+  }
+
+  const removeIdFilter = () => {
+    if (filters.length === 0) return changeView('all')
+    setIdFilter(null)
     setPage(1)
     setSelected(new Set())
   }
@@ -365,7 +384,7 @@ export function RequestsQueue() {
           {/* Table header from Figma "X / Table / Table header": saved view + actions, then filters. */}
           <div className="flex flex-col gap-2 px-4 pt-3 pb-2">
             <div className="flex items-center justify-between gap-4">
-              <ViewPicker view={view} onChange={changeView} active={filters.length > 0} />
+              <ViewPicker view={view} onChange={changeView} active={tagCount > 0} />
               <div className="flex flex-1 items-center justify-end gap-2">
                 <SearchInput
                   value={query}
@@ -407,8 +426,21 @@ export function RequestsQueue() {
                 <Plus className="size-5" strokeWidth={1.75} aria-hidden />
                 Add filter
               </button>
-              {filters.length > 0 && (
+              {tagCount > 0 && (
                 <div className="flex flex-wrap items-center gap-2" role="list" aria-label="Applied filters">
+                  {!filtersHidden && idFilter && (
+                    <span role="listitem" className="flex h-7 items-center rounded border border-vt-secondary-2 bg-vt-information-light">
+                      <span className="px-2 py-0.5 text-sm leading-5 text-vt-dark-text">{idFilter.label}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${idFilter.label} filter`}
+                        onClick={removeIdFilter}
+                        className="grid size-6 place-items-center rounded text-vt-dark-text outline-none hover:bg-vt-secondary-2 focus-visible:ring-2 focus-visible:ring-vt-focus-ring"
+                      >
+                        <X className="size-4" strokeWidth={1.75} />
+                      </button>
+                    </span>
+                  )}
                   {!filtersHidden &&
                     filters.map((id) => (
                       <span
@@ -429,7 +461,7 @@ export function RequestsQueue() {
                     ))}
                   <span className="flex h-4 items-center pl-2 text-xs leading-4 text-vt-link-text">
                     <button type="button" onClick={() => setFiltersHidden((h) => !h)} className="hover:underline">
-                      {filtersHidden ? `Show (${filters.length})` : 'Hide'}
+                      {filtersHidden ? `Show (${tagCount})` : 'Hide'}
                     </button>
                     <span aria-hidden className="mx-2 h-3 w-px bg-vt-border" />
                     <button type="button" onClick={() => changeView('all')} className="hover:underline">

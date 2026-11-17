@@ -71,7 +71,7 @@ export function ProgressConfirmStep({
         {/* Actions with more than one outcome (flags, optional workflow) list each one. */}
         {!none && plan.outcome.length > 1 && <GroupBox title="What will happen" groups={plan.outcome} />}
         {plan.skippedCount > 0 ? (
-          <GroupBox title={`${n(plan.skippedCount)} will be skipped`} groups={plan.skipped} />
+          <GroupBox title={`${n(plan.skippedCount)} will be skipped`} groups={plan.skipped} filterable />
         ) : (
           plan.outcome.length <= 1 && <GroupBox title="No requests will be skipped" groups={plan.outcome} />
         )}
